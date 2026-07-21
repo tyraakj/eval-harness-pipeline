@@ -1,0 +1,2 @@
+{"id":"capital-france","input":{"question":"What is the capital of France?"},"expected":{"contains":["capital","France"]},"tags":["smoke"],"metadata":{"owner":"personal"}}
+{"id":"simple-arithmetic","input":{"question":"What is 2 + 2?"},"expected":{"contains":["2 + 2"]},"tags":["smoke"],"metadata":{"owner":"personal"}}
