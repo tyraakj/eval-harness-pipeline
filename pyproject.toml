@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langgraph-eval-harness"
+version = "0.1.0"
+description = "Provider-neutral, LangGraph-native evaluation harness"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph>=0.6,<2",
+  "langchain-core>=0.3,<2",
+  "pydantic>=2.10,<3",
+  "typer>=0.15,<1",
+]
+
+[project.optional-dependencies]
+dspy = ["dspy>=3,<4"]
+langsmith = ["langsmith>=0.4,<1"]
+otel = [
+  "opentelemetry-api>=1.28,<2",
+  "opentelemetry-sdk>=1.28,<2",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.28,<2",
+]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.8,<1", "mypy>=1.14,<2"]
+
+[project.scripts]
+lg-eval = "langgraph_eval.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/langgraph_eval"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["langgraph_eval"]
