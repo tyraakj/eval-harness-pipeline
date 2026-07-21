@@ -1,7 +1,0 @@
-Answer the question using only the supplied context.
-
-Context:
-{context}
-
-Question:
-{question}
