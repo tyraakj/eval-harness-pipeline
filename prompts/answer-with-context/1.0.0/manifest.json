@@ -1,0 +1,7 @@
+{
+  "id": "answer-with-context",
+  "required_variables": ["context", "question"],
+  "sha256": "sha256:0052a69da6d26bff90c329b462ecd20e1707460a8879cd6594d22e3eecffe503",
+  "template_file": "prompt.txt",
+  "version": "1.0.0"
+}
