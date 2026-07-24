@@ -13,7 +13,9 @@ import typer
 from langgraph_eval.comparison import compare as compare_runs
 from langgraph_eval.datasets import load_jsonl
 from langgraph_eval.definition import EvaluationDefinition
+from langgraph_eval.models import RunSummary
 from langgraph_eval.observability import configure_otel_from_env
+from langgraph_eval.release_gate import ReleaseGate
 from langgraph_eval.runner import EvaluationRunner
 
 app = typer.Typer(no_args_is_help=True, help="LangGraph-native evaluation harness")
@@ -100,3 +102,87 @@ def compare_command(
     }, indent=2))
     if len(result.regressed) > max_regressions or result.pass_rate_delta < minimum_delta:
         raise typer.Exit(code=1)
+
+
+@app.command("release")
+def release_command(
+    deterministic: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    baseline: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    judge: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    policy: Annotated[str, typer.Option()] = "default",
+    minimum_overall_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 1.0,
+    minimum_capability_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.9,
+    minimum_regression_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 1.0,
+    minimum_security_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 1.0,
+    maximum_error_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.0,
+    maximum_regressions: Annotated[int, typer.Option(min=0)] = 0,
+    minimum_pass_rate_delta: Annotated[float, typer.Option(min=-1.0, max=1.0)] = 0.0,
+) -> None:
+    """Evaluate whether a release should be allowed based on evaluation results."""
+    from langgraph_eval.models import ReleasePolicy
+    
+    # Load deterministic summary
+    deterministic_summary = _load_summary(deterministic)
+    
+    # Load judge summary if provided
+    judge_summary = None
+    if judge is not None:
+        judge_summary = _load_summary(judge)
+    
+    # Create release policy
+    if policy == "strict":
+        release_policy = ReleaseGate().create_strict_policy()
+    elif policy == "development":
+        release_policy = ReleaseGate().create_development_policy()
+    elif policy == "staging":
+        release_policy = ReleaseGate().create_staging_policy()
+    elif policy == "default":
+        release_policy = ReleasePolicy(
+            require_deterministic=True,
+            require_regression_check=baseline is not None,
+            require_judge=judge is not None,
+            minimum_overall_pass_rate=minimum_overall_pass_rate,
+            minimum_capability_pass_rate=minimum_capability_pass_rate,
+            minimum_regression_pass_rate=minimum_regression_pass_rate,
+            minimum_security_pass_rate=minimum_security_pass_rate,
+            maximum_error_rate=maximum_error_rate,
+            maximum_regressions=maximum_regressions,
+            minimum_pass_rate_delta=minimum_pass_rate_delta,
+        )
+    else:
+        raise typer.BadParameter(f"Unknown policy: {policy}")
+    
+    # Evaluate release
+    gate = ReleaseGate(policy=release_policy)
+    decision = asyncio.run(gate.evaluate_release(
+        deterministic_summary,
+        comparison_baseline=baseline,
+        judge_summary=judge_summary,
+    ))
+    
+    # Output decision
+    typer.echo(decision.model_dump_json(indent=2))
+    
+    # Exit with error code if release not allowed
+    if not decision.allowed:
+        raise typer.Exit(code=1)
+
+
+def _load_summary(path: Path) -> RunSummary:
+    """Load a RunSummary from a JSONL artifact file."""
+    import json
+    
+    # Read the last line which should contain the summary
+    lines = path.read_text("utf-8").splitlines()
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            data = json.loads(line)
+            # Try to parse as RunSummary
+            if "run_id" in data and "total" in data:
+                return RunSummary.model_validate(data)
+        except (json.JSONDecodeError, ValueError):
+            continue
+    
+    raise ValueError(f"Could not find RunSummary in artifact: {path}")

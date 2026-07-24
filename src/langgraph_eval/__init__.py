@@ -28,6 +28,8 @@ from langgraph_eval.models import (
     OnlineEvaluationPolicy,
     OnlineEvaluationStatus,
     OutcomeObservation,
+    ReleaseDecision,
+    ReleasePolicy,
     RetrievalExpectation,
     RetrievalObservation,
     RunSummary,
@@ -45,6 +47,7 @@ from langgraph_eval.models import (
 )
 from langgraph_eval.observability import OtelRuntime, configure_otel, configure_otel_from_env
 from langgraph_eval.optimizers import OptimizationCandidate, OptimizationResult, Optimizer
+from langgraph_eval.release_gate import ReleaseGate
 
 __all__ = [
     "Budget",
@@ -76,6 +79,9 @@ __all__ = [
     "Optimizer",
     "OtelRuntime",
     "OutcomeObservation",
+    "ReleaseDecision",
+    "ReleaseGate",
+    "ReleasePolicy",
     "RetrievalExpectation",
     "RetrievalObservation",
     "RunSummary",

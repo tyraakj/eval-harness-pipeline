@@ -149,6 +149,61 @@ class OnlineEvaluationDecision(FrozenModel):
     reserved_cost_usd: float = Field(default=0, ge=0)
 
 
+class ReleasePolicy(FrozenModel):
+    """Policy for determining whether a release is allowed."""
+    require_deterministic: bool = True
+    require_regression_check: bool = False
+    require_judge: bool = False
+    
+    # Deterministic evaluation requirements
+    minimum_overall_pass_rate: float = Field(default=1.0, ge=0, le=1)
+    minimum_capability_pass_rate: float = Field(default=0.9, ge=0, le=1)
+    minimum_regression_pass_rate: float = Field(default=1.0, ge=0, le=1)
+    minimum_security_pass_rate: float = Field(default=1.0, ge=0, le=1)
+    maximum_error_rate: float = Field(default=0.0, ge=0, le=1)
+    
+    # Regression check requirements
+    maximum_regressions: int = Field(default=0, ge=0)
+    minimum_pass_rate_delta: float = Field(default=0.0, ge=-1.0, le=1.0)
+    
+    # Judge evaluation requirements
+    minimum_judge_score: float = Field(default=0.7, ge=0, le=1)
+    maximum_judge_cost_usd: float = Field(default=10.0, ge=0)
+    
+    @model_validator(mode="after")
+    def validate_policy(self) -> ReleasePolicy:
+        if self.require_regression_check and not self.require_deterministic:
+            raise ValueError("Regression check requires deterministic evaluation")
+        if self.require_judge and not self.require_deterministic:
+            raise ValueError("Judge evaluation requires deterministic evaluation")
+        return self
+
+
+class ReleaseDecision(FrozenModel):
+    """Decision on whether a release is allowed with detailed rationale."""
+    allowed: bool
+    reason: str
+    deterministics_passed: bool = False
+    deterministics_rationale: str = ""
+    regression_passed: bool = True
+    regression_rationale: str = ""
+    judge_passed: bool = True
+    judge_rationale: str = ""
+    
+    # Summary metrics for audit trail
+    overall_pass_rate: float = Field(default=0, ge=0, le=1)
+    capability_pass_rate: float = Field(default=0, ge=0, le=1)
+    regression_pass_rate: float = Field(default=0, ge=0, le=1)
+    security_pass_rate: float = Field(default=0, ge=0, le=1)
+    error_rate: float = Field(default=0, ge=0, le=1)
+    
+    regression_count: int = Field(default=0, ge=0)
+    pass_rate_delta: float = Field(default=0, ge=-1.0, le=1.0)
+    
+    judge_score: float = Field(default=0, ge=0, le=1)
+    judge_cost_usd: float = Field(default=0, ge=0)
+
+
 class ExportPolicy(FrozenModel):
     queue_capacity: int = Field(default=100, ge=1, le=100_000)
     worker_count: int = Field(default=2, ge=1, le=32)
