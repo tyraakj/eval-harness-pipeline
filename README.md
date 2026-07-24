@@ -28,12 +28,46 @@ A personal, production-oriented evaluation harness for LangGraph applications. I
 - Provider-neutral target and grader protocols.
 - Focused tests and a runnable deterministic graph example.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system boundaries and production guidance.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system boundaries and production guidance, and [docs/DATA_FLOW.md](docs/DATA_FLOW.md) for detailed architecture and data flow documentation.
 
-## Setup with uv
+## Quick Start (One-Line Install)
 
+### Windows (PowerShell)
+```powershell
+# One-line install - clones repo, installs uv, and sets up dependencies
+irm https://raw.githubusercontent.com/tyraakj/eval-harness-pipeline/main/install.ps1 | iex
+```
+
+### macOS/Linux (Bash)
+```bash
+# One-line install - clones repo, installs uv, and sets up dependencies
+curl -LsSf https://raw.githubusercontent.com/tyraakj/eval-harness-pipeline/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+cd C:\Users\YourUsername\personal-evaluation-harness
+uv sync --all-extras
+uv lock
+```
+
+### macOS/Linux (Bash)
+```bash
+cd /path/to/personal-evaluation-harness
+uv sync --all-extras
+uv lock
+```
+
+### Windows (PowerShell)
 ```powershell
 cd C:\Users\Tyra\personal-evaluation-harness
+uv sync --all-extras
+uv lock
+```
+
+### macOS/Linux (Bash)
+```bash
+cd /path/to/personal-evaluation-harness
 uv sync --all-extras
 uv lock
 ```
@@ -60,6 +94,27 @@ uv run lg-eval compare `
 	--baseline artifacts/baseline.jsonl `
 	--max-regressions 0 `
 	--minimum-delta 0
+```
+
+Make release decisions with the Release Gate:
+
+```powershell
+# Basic release check (deterministic evaluation only)
+uv run lg-eval release `
+	--deterministic artifacts/results.jsonl `
+	--policy development
+
+# Release check with regression comparison
+uv run lg-eval release `
+	--deterministic artifacts/candidate.jsonl `
+	--baseline artifacts/baseline.jsonl `
+	--policy staging
+
+# Strict production release check
+uv run lg-eval release `
+	--deterministic artifacts/results.jsonl `
+	--baseline artifacts/baseline.jsonl `
+	--policy strict
 ```
 
 Run quality checks:
@@ -305,6 +360,291 @@ decision = await online.evaluate(
 ```
 
 `InMemoryOnlineCostLedger` is suitable only for local development. Production hosts must inject a durable, atomic ledger shared by all evaluator processes.
+
+## Testing
+
+**Platform Note:** This README shows PowerShell commands for Windows. For macOS/Linux, replace:
+- Line continuation: `` ` `` → `\`
+- Environment variables: `$env:VAR` → `export VAR`
+- Path separators: `\` → `/`
+
+### Quick Start Testing
+
+```bash
+# Windows (PowerShell)
+uv run pytest
+uv run ruff check .
+uv run mypy
+uv run build
+
+# macOS/Linux (Bash)
+uv run pytest
+uv run ruff check .
+uv run mypy
+uv run build
+```
+
+### Comprehensive Feature Testing
+
+#### 1. Quality Checks
+```bash
+# All platforms
+uv run pytest
+uv run ruff check .
+uv run mypy
+uv run build
+```
+
+#### 2. Unit Tests - All Components
+```bash
+# Core components
+uv run pytest tests/test_datasets.py -v
+uv run pytest tests/test_prompts.py -v
+uv run pytest tests/test_safety.py -v
+uv run pytest tests/test_suite_outcomes.py -v
+
+# Advanced features
+uv run pytest tests/test_advanced_evaluation.py -v
+uv run pytest tests/test_exporting.py -v
+uv run pytest tests/test_observability.py -v
+uv run pytest tests/test_telemetry.py -v
+
+# Integration features
+uv run pytest tests/test_optimizers.py -v
+uv run pytest tests/test_online.py -v
+uv run pytest tests/test_human_evaluation.py -v
+uv run pytest tests/test_langsmith_exporter.py -v
+
+# Core systems
+uv run pytest tests/test_runner.py -v
+uv run pytest tests/test_release_gate.py -v
+
+# All tests with coverage
+uv run pytest --cov=langgraph_eval -v
+```
+
+#### 3. DSPy Optimization Testing
+```bash
+# Install DSPy extra
+uv sync --extra dspy
+
+# Test DSPy adapter
+uv run pytest tests/test_optimizers.py -v
+
+# Test specific DSPy features
+uv run pytest tests/test_optimizers.py::test_dspy_adapter_compiles_and_records_candidate -v
+uv run pytest tests/test_optimizers.py::test_dspy_adapter_enforces_training_case_limit -v
+uv run pytest tests/test_optimizers.py::test_dspy_adapter_bounds_serialized_candidate_state -v
+```
+
+#### 4. RAG/Retrieval Testing
+```bash
+# Test retrieval metrics grader (Recall@k, Precision@k, MRR)
+uv run pytest tests/test_advanced_evaluation.py::test_retrieval_metrics_grader -v
+
+# Test loop efficiency grader (iteration limits)
+uv run pytest tests/test_advanced_evaluation.py::test_loop_efficiency_grader -v
+
+# Test trajectory subsequence grader
+uv run pytest tests/test_advanced_evaluation.py::test_trajectory_subsequence_grader -v
+```
+
+#### 5. Observability/Telemetry Testing
+```bash
+# Install OTEL extra
+uv sync --extra otel
+
+# Test telemetry
+uv run pytest tests/test_telemetry.py -v
+
+# Test observability integration
+uv run pytest tests/test_observability.py -v
+
+# Windows PowerShell
+Copy-Item observability/.env.example observability/.env
+notepad observability/.env
+docker compose --env-file observability/.env -f observability/docker-compose.yml up -d
+$env:LANGGRAPH_EVAL_OTEL_ENABLED = "true"
+$env:OTEL_SERVICE_NAME = "personal-evaluation-harness"
+$env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"
+$env:OTEL_RESOURCE_ENVIRONMENT = "local"
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
+
+# macOS/Linux
+cp observability/.env.example observability/.env
+$EDITOR observability/.env
+docker compose --env-file observability/.env -f observability/docker-compose.yml up -d
+export LANGGRAPH_EVAL_OTEL_ENABLED=true
+export OTEL_SERVICE_NAME="personal-evaluation-harness"
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
+export OTEL_RESOURCE_ENVIRONMENT="local"
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
+
+# Stop observability stack (all platforms)
+docker compose --env-file observability/.env -f observability/docker-compose.yml down
+```
+
+#### 6. LangSmith Integration Testing
+```bash
+# Test LangSmith exporter
+uv run pytest tests/test_langsmith_exporter.py -v
+
+# Test specific LangSmith features
+uv run pytest tests/test_langsmith_exporter.py::test_trace_promotion_uses_source_run_io -v
+uv run pytest tests/test_langsmith_exporter.py::test_completed_annotations_import_into_canonical_human_ledger -v
+
+# Windows PowerShell
+$env:LANGSMITH_TRACING = "true"
+$env:LANGSMITH_API_KEY = "your-api-key"
+$env:LANGSMITH_PROJECT = "personal-evaluations"
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/langsmith-run.jsonl
+
+# macOS/Linux
+export LANGSMITH_TRACING=true
+export LANGSMITH_API_KEY="your-api-key"
+export LANGSMITH_PROJECT="personal-evaluations"
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/langsmith-run.jsonl
+```
+
+#### 7. Human Evaluation Testing
+```bash
+# Test human evaluation ledger
+uv run pytest tests/test_human_evaluation.py -v
+
+# Test specific human evaluation features
+uv run pytest tests/test_human_evaluation.py::test_blind_reviews_require_adjudication_and_gate_release -v
+uv run pytest tests/test_human_evaluation.py::test_revisions_are_explicit_and_ledger_resumes -v
+uv run pytest tests/test_human_evaluation.py::test_cohen_kappa_uses_paired_active_reviews -v
+```
+
+#### 8. Online Evaluation Testing
+```bash
+# Test online evaluator
+uv run pytest tests/test_online.py -v
+
+# Test specific online evaluation features
+uv run pytest tests/test_online.py::test_online_evaluator_enforces_project_and_retention -v
+uv run pytest tests/test_online.py::test_online_evaluator_runs_sampled_trace -v
+uv run pytest tests/test_online.py::test_online_evaluator_deterministically_skips_unsampled_trace -v
+uv run pytest tests/test_langsmith_exporter.py::test_online_evaluation_requires_all_production_controls -v
+```
+
+#### 9. Sandbox Testing
+```bash
+# Test sandbox provider integration
+uv run pytest tests/test_runner.py -v
+
+# Test sandbox provisioning and cleanup
+uv run pytest tests/test_advanced_evaluation.py -v
+
+# Test security cases with sandbox requirements
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/security.jsonl --output artifacts/security-test.jsonl --overwrite
+```
+
+#### 10. Prompt Testing
+```bash
+# Test prompt registry
+uv run pytest tests/test_prompts.py -v
+
+# Test prompt rendering (Python)
+python -c "from langgraph_eval.prompts import PromptRegistry; from pathlib import Path; registry = PromptRegistry(Path('prompts')); prompt = registry.render('answer-with-context', '1.0.0', {'context': 'test', 'question': 'test'}); print(prompt)"
+
+# Test prompt hash validation (Python)
+python -c "from langgraph_eval.prompts import PromptRegistry; from pathlib import Path; registry = PromptRegistry(Path('prompts')); print(registry.verify('answer-with-context', '1.0.0'))"
+```
+
+#### 11. End-to-End Workflow Testing
+```bash
+# Windows PowerShell
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/e2e-test.jsonl --overwrite
+uv run lg-eval compare --candidate artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --max-regressions 2
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --policy development
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy staging
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy strict
+
+# macOS/Linux
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/e2e-test.jsonl --overwrite
+uv run lg-eval compare --candidate artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --max-regressions 2
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --policy development
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy staging
+uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy strict
+```
+
+#### 12. Advanced Grading Testing
+```bash
+# Test all deterministic graders
+uv run pytest tests/test_advanced_evaluation.py -v
+
+# Test specific graders
+uv run pytest tests/test_advanced_evaluation.py::test_outcome_state_grader -v
+uv run pytest tests/test_advanced_evaluation.py::test_tool_policy_grader -v
+uv run pytest tests/test_advanced_evaluation.py::test_exact_match_grader -v
+uv run pytest tests/test_advanced_evaluation.py::test_contains_all_grader -v
+```
+
+#### 13. Model Judges Testing
+```bash
+# Test calibrated model judge
+uv run pytest tests/test_advanced_evaluation.py::test_calibrated_model_judge -v
+
+# Test judge cost reservation
+uv run pytest tests/test_advanced_evaluation.py::test_judge_cost_reservation -v
+```
+
+#### 14. CI/CD Integration Testing
+```bash
+# CI-friendly evaluation with exit codes
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/ci-results.jsonl --minimum-pass-rate 0.8
+
+# CI-friendly release gate
+uv run lg-eval release --deterministic artifacts/ci-results.jsonl --policy production
+```
+
+### Platform-Specific Setup
+
+#### Windows (PowerShell)
+```powershell
+cd C:\Users\Tyra\personal-evaluation-harness
+uv sync --all-extras
+uv lock
+```
+
+#### macOS/Linux (Bash)
+```bash
+cd /path/to/personal-evaluation-harness
+uv sync --all-extras
+uv lock
+```
+
+#### Cross-Platform Example Execution
+```bash
+# Single-line commands work on all platforms
+uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/example.jsonl --minimum-pass-rate 1.0
+
+# Multi-line commands require platform-specific continuation
+# Windows PowerShell
+uv run lg-eval run `
+  --factory examples.simple_graph:create_evaluation `
+  --dataset datasets/example.jsonl `
+  --output artifacts/example.jsonl
+
+# macOS/Linux
+uv run lg-eval run \
+  --factory examples.simple_graph:create_evaluation \
+  --dataset datasets/example.jsonl \
+  --output artifacts/example.jsonl
+```
+
+## Release Gate
+
+The Release Gate pattern provides unified release decisions by coordinating deterministic evaluations, regression checks, and optional judge evaluations. It includes:
+
+- **Pre-configured policies**: `strict`, `development`, and `staging` for different environments
+- **Custom thresholds**: Fine-grained control over pass rates, error rates, and regression limits
+- **Detailed audit trail**: Complete rationale for release decisions with per-check breakdown
+- **Suite-aware requirements**: Different thresholds for capability, regression, and security suites
+
+See [docs/DATA_FLOW.md](docs/DATA_FLOW.md) for detailed architecture and data flow documentation.
 
 ## CI policy
 
