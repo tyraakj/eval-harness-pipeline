@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from langgraph_eval.utils import sanitize
+from glyph.utils import sanitize
 
 
 def test_sanitize_redacts_common_secrets_and_email() -> None:

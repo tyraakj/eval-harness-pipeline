@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 try:
-    from langgraph_eval.db import Run, Trial, get_session
+    from glyph.db import Run, Trial, get_session
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
@@ -67,9 +67,8 @@ async def test_get_session():
     if not DATABASE_AVAILABLE:
         pytest.skip("Database dependencies not available. Install with: uv sync --extra web")
     
-    session = await get_session()
-    assert session is not None
-    await session.close()
+    async with get_session() as session:
+        assert session is not None
 
 
 def test_database_url_env_var():
@@ -77,7 +76,7 @@ def test_database_url_env_var():
     if not DATABASE_AVAILABLE:
         pytest.skip("Database dependencies not available. Install with: uv sync --extra web")
     
-    from langgraph_eval.db import DATABASE_URL
+    from glyph.db import DATABASE_URL
     
     # Should have a default value
     assert DATABASE_URL is not None

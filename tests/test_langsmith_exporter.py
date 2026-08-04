@@ -8,13 +8,13 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from langgraph_eval.evaluation.human import (
+from glyph.evaluation.human import (
     HumanEvaluationLedger,
     HumanReviewRubric,
     HumanReviewTask,
 )
-from langgraph_eval.exporters.langsmith_exporter import LangSmithExporter
-from langgraph_eval.core.models import (
+from glyph.exporters.langsmith_exporter import LangSmithExporter
+from glyph.core.models import (
     EvalCase,
     Grade,
     OnlineEvaluationPolicy,

@@ -13,8 +13,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
 
-from langgraph_eval.core.models import Provenance, TrialRecord, TrialStatus
-from langgraph_eval.monitoring.telemetry import EvaluationTelemetry
+from glyph.core.models import Provenance, TrialRecord, TrialStatus
+from glyph.monitoring.telemetry import EvaluationTelemetry
 
 
 def telemetry() -> tuple[EvaluationTelemetry, InMemoryMetricReader, InMemorySpanExporter]:

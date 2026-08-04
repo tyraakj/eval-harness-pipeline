@@ -4,10 +4,10 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from langgraph_eval.evaluation.definition import EvaluationDefinition
-from langgraph_eval.grading.graders import ContainsAllGrader
-from langgraph_eval.targets.langgraph_target import LangGraphTarget
-from langgraph_eval.core.models import Budget, SandboxRequirements
+from glyph.evaluation.definition import EvaluationDefinition
+from glyph.grading.graders import ContainsAllGrader
+from glyph.targets.langgraph_target import LangGraphTarget
+from glyph.core.models import Budget, SandboxRequirements
 
 
 class State(TypedDict, total=False):

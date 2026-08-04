@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from langgraph_eval.core.config import (
+from glyph.core.config import (
     EvaluationConfig,
     GraderConfig,
     create_sample_config,
@@ -77,7 +77,7 @@ def test_load_config_success(sample_config_path: Path):
 
 def test_load_config_file_not_found(tmp_path: Path):
     """Test loading config from non-existent file."""
-    from langgraph_eval.core.config import ConfigLoadError
+    from glyph.core.config import ConfigLoadError
     
     nonexistent = tmp_path / "nonexistent.yaml"
     with pytest.raises(ConfigLoadError, match="Config file not found"):
@@ -86,7 +86,7 @@ def test_load_config_file_not_found(tmp_path: Path):
 
 def test_load_config_invalid_yaml(tmp_path: Path):
     """Test loading config with invalid YAML."""
-    from langgraph_eval.core.config import ConfigLoadError
+    from glyph.core.config import ConfigLoadError
     
     invalid_yaml = tmp_path / "invalid.yaml"
     invalid_yaml.write_text("invalid: yaml: content: [unclosed")
@@ -97,7 +97,7 @@ def test_load_config_invalid_yaml(tmp_path: Path):
 
 def test_load_config_missing_required_field(tmp_path: Path):
     """Test loading config with missing required field."""
-    from langgraph_eval.core.config import ConfigLoadError
+    from glyph.core.config import ConfigLoadError
     
     incomplete_config = tmp_path / "incomplete.yaml"
     incomplete_config.write_text("suite:\n  id: test\n# Missing target")
@@ -108,7 +108,7 @@ def test_load_config_missing_required_field(tmp_path: Path):
 
 def test_load_config_unknown_grader(tmp_path: Path):
     """Test loading config with unknown grader type."""
-    from langgraph_eval.core.config import UnknownGraderError
+    from glyph.core.config import UnknownGraderError
     
     config_content = """
 suite:

@@ -1,8 +1,8 @@
-# AI Evaluation Harness - Data Flow & Architecture
+# Glyphuation Harness - Data Flow & Architecture
 
 ## System Overview
 
-The AI Evaluation Harness is a production-oriented evaluation system for AI applications supporting multiple execution frameworks. It executes versioned tasks against AI targets, captures bounded evidence, grades observable outcomes, and produces reproducible release decisions.
+The Glyphuation Harness is a production-oriented evaluation system for AI applications supporting multiple execution frameworks. It executes versioned tasks against AI targets, captures bounded evidence, grades observable outcomes, and produces reproducible release decisions.
 
 ## High-Level Architecture
 
@@ -42,7 +42,7 @@ The AI Evaluation Harness is a production-oriented evaluation system for AI appl
 ## Core Components
 
 ### 1. CLI Layer (`cli.py`)
-**Entry point:** `ai-eval` command-line interface
+**Entry point:** `glyph` command-line interface
 
 **Responsibilities:**
 - Parse command-line arguments
@@ -687,14 +687,14 @@ Factory Function
 ### CI Integration
 ```bash
 # Run evaluation
-uv run ai-eval run \
+uv run glyph run \
     --factory examples.simple_graph:create_evaluation \
     --dataset datasets/example.jsonl \
     --output artifacts/example.jsonl \
     --minimum-pass-rate 1.0
 
 # Compare with baseline
-uv run ai-eval compare \
+uv run glyph compare \
     --candidate artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --max-regressions 0 \
@@ -862,25 +862,25 @@ The CLI provides commands for running evaluations, comparing artifacts, release 
 
 ```bash
 # Basic release check with deterministic evaluation only
-uv run ai-eval release \
+uv run glyph release \
     --deterministic artifacts/results.jsonl \
     --policy strict
 
 # Release check with regression comparison
-uv run ai-eval release \
+uv run glyph release \
     --deterministic artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --policy staging
 
 # Release check with judge evaluation
-uv run ai-eval release \
+uv run glyph release \
     --deterministic artifacts/deterministic.jsonl \
     --baseline artifacts/baseline.jsonl \
     --judge artifacts/judge.jsonl \
     --policy development
 
 # Custom policy thresholds
-uv run ai-eval release \
+uv run glyph release \
     --deterministic artifacts/results.jsonl \
     --baseline artifacts/baseline.jsonl \
     --minimum-overall-pass-rate 0.95 \
@@ -888,13 +888,13 @@ uv run ai-eval release \
     --minimum-pass-rate-delta 0.0
 
 # Start the FastAPI web server
-uv run ai-eval serve --host 127.0.0.1 --port 8000
+uv run glyph serve --host 127.0.0.1 --port 8000
 
 # Start a Celery background worker
-uv run ai-eval worker --concurrency 2
+uv run glyph worker --concurrency 2
 
 # Scaffold a new evaluation project
-uv run ai-eval init my-evaluation
+uv run glyph init my-evaluation
 ```
 
 ### Release Decision Output
@@ -943,7 +943,7 @@ The Release Gate pattern integrates seamlessly with the existing evaluation harn
 
 ## Summary
 
-The AI Evaluation Harness provides a comprehensive, production-ready evaluation system with:
+The Glyphuation Harness provides a comprehensive, production-ready evaluation system with:
 
 - **Typed, immutable data models** for reproducibility
 - **LangGraph-native integration** with automatic observation

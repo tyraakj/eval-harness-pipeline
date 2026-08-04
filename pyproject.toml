@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ai-eval-harness"
+name = "glyph"
 version = "0.1.0"
 description = "Framework-agnostic AI evaluation harness supporting multiple execution frameworks"
 readme = "README.md"
@@ -39,10 +39,10 @@ web = [
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.8,<1", "mypy>=1.14,<2"]
 
 [project.scripts]
-ai-eval = "langgraph_eval.cli:app"
+glyph = "glyph.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/langgraph_eval"]
+packages = ["src/glyph"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -59,4 +59,10 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["langgraph_eval"]
+packages = ["glyph"]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "pyinstaller>=6.21.0",
+]

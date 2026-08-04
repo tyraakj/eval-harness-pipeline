@@ -7,16 +7,16 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, LLMResult
 
-from langgraph_eval.security.contracts import RunContext
-from langgraph_eval.grading.graders import (
+from glyph.security.contracts import RunContext
+from glyph.grading.graders import (
     LoopEfficiencyGrader,
     OutcomeStateGrader,
     RetrievalMetricsGrader,
     TrajectorySubsequenceGrader,
 )
-from langgraph_eval.grading.judges import CalibratedModelJudge, JudgeDecision
-from langgraph_eval.targets.langgraph_target import TrajectoryCallback
-from langgraph_eval.core.models import (
+from glyph.grading.judges import CalibratedModelJudge, JudgeDecision
+from glyph.targets.langgraph_target import TrajectoryCallback
+from glyph.core.models import (
     Budget,
     EvalCase,
     Grade,
@@ -30,7 +30,7 @@ from langgraph_eval.core.models import (
     TranscriptCapturePolicy,
     TrialStatus,
 )
-from langgraph_eval.evaluation.runner import EvaluationRunner
+from glyph.evaluation.runner import EvaluationRunner
 
 
 class AlternatingTarget:

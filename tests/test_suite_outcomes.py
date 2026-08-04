@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from pydantic import JsonValue
 
-from langgraph_eval.security.contracts import RunContext
-from langgraph_eval.grading.graders import ExactMatchGrader, OutcomeStateGrader
-from langgraph_eval.core.models import (
+from glyph.security.contracts import RunContext
+from glyph.grading.graders import ExactMatchGrader, OutcomeStateGrader
+from glyph.core.models import (
     Budget,
     EvalCase,
     EvaluationSuite,
@@ -18,7 +18,7 @@ from langgraph_eval.core.models import (
     TargetResult,
     TrialRecord,
 )
-from langgraph_eval.evaluation.runner import EvaluationRunner
+from glyph.evaluation.runner import EvaluationRunner
 
 
 class Target:

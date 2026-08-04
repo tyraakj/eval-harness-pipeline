@@ -1,6 +1,6 @@
 # Module Reference
 
-This document maps the `src/langgraph_eval` package structure, providing a high-level overview of each module's responsibility.
+This document maps the `src/glyph` package structure, providing a high-level overview of each module's responsibility.
 
 ## Top-Level Packages
 
@@ -27,7 +27,7 @@ This document maps the `src/langgraph_eval` package structure, providing a high-
   - `health.py`: Liveness and readiness checks.
 
 ### `cli/` (Command Line)
-- `cli.py`: The main `ai-eval` entrypoint defining `run`, `compare`, `release`, `serve`, `worker`, and `init` commands.
+- `cli.py`: The main `glyph` entrypoint defining `run`, `compare`, `release`, `serve`, `worker`, and `init` commands.
 - `formatters.py`: Rich console formatting for CLI output.
 
 ### `core/` (Data & Contracts)

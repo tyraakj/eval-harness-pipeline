@@ -6,7 +6,7 @@ import pytest
 
 try:
     from fastapi.testclient import TestClient
-    from langgraph_eval.api.main import app
+    from glyph.api.main import app
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
@@ -47,7 +47,8 @@ def test_list_datasets(client):
     response = client.get("/api/datasets")
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
+    assert isinstance(data, dict)
+    assert "datasets" in data
 
 
 def test_list_graders(client):

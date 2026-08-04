@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from langgraph_eval.grading.comparison import Comparison
-from langgraph_eval.utils.formatting import OutputFormat, format_comparison, format_release_decision, format_run_summary, format_trial_detail
-from langgraph_eval.core.models import (
+from glyph.grading.comparison import Comparison
+from glyph.utils.formatting import OutputFormat, format_comparison, format_release_decision, format_run_summary, format_trial_detail
+from glyph.core.models import (
     Grade,
     ReleaseDecision,
     RunSummary,
@@ -18,7 +18,7 @@ from langgraph_eval.core.models import (
 @pytest.fixture
 def sample_run_summary() -> RunSummary:
     """Create a sample RunSummary for testing."""
-    from langgraph_eval.core.models import SuiteType
+    from glyph.core.models import SuiteType
     return RunSummary(
         run_id="test-run-123",
         evaluation_suite_id="test-suite",
@@ -45,7 +45,7 @@ def sample_run_summary() -> RunSummary:
 @pytest.fixture
 def sample_comparison() -> Comparison:
     """Create a sample Comparison for testing."""
-    from langgraph_eval.grading.comparison import Comparison
+    from glyph.grading.comparison import Comparison
     return Comparison(
         common_cases=10,
         improved=("case1", "case2"),
@@ -83,7 +83,7 @@ def sample_release_decision() -> ReleaseDecision:
 @pytest.fixture
 def sample_trial_record() -> TrialRecord:
     """Create a sample TrialRecord for testing."""
-    from langgraph_eval.core.models import Provenance, TargetResult
+    from glyph.core.models import Provenance, TargetResult
     return TrialRecord(
         schema_version="1.0",
         run_id="test-run-123",
@@ -252,7 +252,7 @@ def test_format_run_summary_blocked_release(capsys):
 
 def test_format_comparison_negative_delta(capsys):
     """Test formatting for comparison with negative delta (regression)."""
-    from langgraph_eval.grading.comparison import Comparison
+    from glyph.grading.comparison import Comparison
     comparison = Comparison(
         common_cases=10,
         improved=(),
@@ -269,7 +269,7 @@ def test_format_comparison_negative_delta(capsys):
 
 def test_create_progress_callback():
     """Test that progress callback creation works."""
-    from langgraph_eval.utils.formatting import create_progress_callback
+    from glyph.utils.formatting import create_progress_callback
     
     progress, callback = create_progress_callback(total_trials=10)
     assert progress is not None
