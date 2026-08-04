@@ -9,7 +9,7 @@ pytest.importorskip("opentelemetry.sdk")
 from opentelemetry.sdk.metrics.export import ConsoleMetricExporter
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
-from langgraph_eval.observability import configure_otel, configure_otel_from_env
+from langgraph_eval.monitoring.observability import configure_otel, configure_otel_from_env
 
 
 def test_otlp_runtime_exports_and_flushes_batch_telemetry() -> None:
