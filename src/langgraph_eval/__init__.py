@@ -1,21 +1,8 @@
 """LangGraph-native evaluation harness."""
 
-from langgraph_eval.human import (
-    HumanAdjudication,
-    HumanEvaluationLedger,
-    HumanGrade,
-    HumanGrader,
-    HumanReleaseDecision,
-    HumanReleasePolicy,
-    HumanReviewAssignment,
-    HumanReviewDecision,
-    HumanReviewPolicy,
-    HumanReviewRubric,
-    HumanReviewStatus,
-    HumanReviewSummary,
-    HumanReviewTask,
-)
-from langgraph_eval.models import (
+from __future__ import annotations
+
+from langgraph_eval.core.models import (
     Budget,
     EvalCase,
     EvaluationSuite,
@@ -45,9 +32,42 @@ from langgraph_eval.models import (
     TrialRecord,
     TrialStatus,
 )
-from langgraph_eval.observability import OtelRuntime, configure_otel, configure_otel_from_env
-from langgraph_eval.optimizers import OptimizationCandidate, OptimizationResult, Optimizer
-from langgraph_eval.release_gate import ReleaseGate
+
+try:
+    from langgraph_eval.evaluation.human import (
+        HumanAdjudication,
+        HumanEvaluationLedger,
+        HumanGrade,
+        HumanGrader,
+        HumanReleaseDecision,
+        HumanReleasePolicy,
+        HumanReviewAssignment,
+        HumanReviewDecision,
+        HumanReviewPolicy,
+        HumanReviewRubric,
+        HumanReviewStatus,
+        HumanReviewSummary,
+        HumanReviewTask,
+    )
+    from langgraph_eval.evaluation.optimizers import (
+        OptimizationCandidate,
+        OptimizationResult,
+        Optimizer,
+    )
+    from langgraph_eval.evaluation.release_gate import ReleaseGate
+    _HUMAN_AVAILABLE = True
+except ImportError:
+    _HUMAN_AVAILABLE = False
+
+try:
+    from langgraph_eval.monitoring.observability import (
+        OtelRuntime,
+        configure_otel,
+        configure_otel_from_env,
+    )
+    _OBSERVABILITY_AVAILABLE = True
+except ImportError:
+    _OBSERVABILITY_AVAILABLE = False
 
 __all__ = [
     "Budget",
@@ -56,31 +76,13 @@ __all__ = [
     "ExportPolicy",
     "Grade",
     "GraderPolicy",
-    "HumanAdjudication",
-    "HumanEvaluationLedger",
-    "HumanGrade",
-    "HumanGrader",
-    "HumanReleaseDecision",
-    "HumanReleasePolicy",
-    "HumanReviewAssignment",
-    "HumanReviewDecision",
-    "HumanReviewPolicy",
-    "HumanReviewRubric",
-    "HumanReviewStatus",
-    "HumanReviewSummary",
-    "HumanReviewTask",
     "LoopIteration",
     "LoopObservation",
     "OnlineEvaluationDecision",
     "OnlineEvaluationPolicy",
     "OnlineEvaluationStatus",
-    "OptimizationCandidate",
-    "OptimizationResult",
-    "Optimizer",
-    "OtelRuntime",
     "OutcomeObservation",
     "ReleaseDecision",
-    "ReleaseGate",
     "ReleasePolicy",
     "RetrievalExpectation",
     "RetrievalObservation",
@@ -96,6 +98,32 @@ __all__ = [
     "TranscriptCapturePolicy",
     "TrialRecord",
     "TrialStatus",
-    "configure_otel",
-    "configure_otel_from_env",
 ]
+
+if _HUMAN_AVAILABLE:
+    __all__.extend([
+        "HumanAdjudication",
+        "HumanEvaluationLedger",
+        "HumanGrade",
+        "HumanGrader",
+        "HumanReleaseDecision",
+        "HumanReleasePolicy",
+        "HumanReviewAssignment",
+        "HumanReviewDecision",
+        "HumanReviewPolicy",
+        "HumanReviewRubric",
+        "HumanReviewStatus",
+        "HumanReviewSummary",
+        "HumanReviewTask",
+        "OptimizationCandidate",
+        "OptimizationResult",
+        "Optimizer",
+        "ReleaseGate",
+    ])
+
+if _OBSERVABILITY_AVAILABLE:
+    __all__.extend([
+        "OtelRuntime",
+        "configure_otel",
+        "configure_otel_from_env",
+    ])
