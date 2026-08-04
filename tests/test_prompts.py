@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_eval.prompts import PromptRegistry
+from langgraph_eval.utils.prompts import PromptRegistry
 
 
 def test_prompt_registry_verifies_and_renders_version(tmp_path: Path) -> None:

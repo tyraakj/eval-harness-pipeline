@@ -8,10 +8,10 @@ from typing import TypedDict
 import pytest
 from langgraph.graph import END, START, StateGraph
 
-from langgraph_eval.contracts import RunContext
-from langgraph_eval.graders import ExactMatchGrader
-from langgraph_eval.langgraph_target import LangGraphTarget
-from langgraph_eval.models import (
+from langgraph_eval.security.contracts import RunContext
+from langgraph_eval.grading.graders import ExactMatchGrader
+from langgraph_eval.targets.langgraph_target import LangGraphTarget
+from langgraph_eval.core.models import (
     Budget,
     EvalCase,
     SandboxRequirements,
@@ -19,7 +19,7 @@ from langgraph_eval.models import (
     TrialRecord,
     TrialStatus,
 )
-from langgraph_eval.runner import EvaluationRunner
+from langgraph_eval.evaluation.runner import EvaluationRunner
 
 
 class State(TypedDict, total=False):
