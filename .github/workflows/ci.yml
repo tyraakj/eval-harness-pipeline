@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality-checks:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+      with:
+        version: "latest"
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+        uv lock
+    
+    - name: Run pytest
+      run: uv run pytest --cov=langgraph_eval --cov-report=xml
+    
+    - name: Run ruff check
+      run: uv run ruff check .
+    
+    - name: Run mypy
+      run: uv run mypy
+    
+    - name: Build package
+      run: uv build
+    
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  test-specific-features:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - name: DSPy Optimization
+            extra: dspy
+            test: tests/test_optimizers.py
+          - name: Observability
+            extra: otel
+            test: tests/test_telemetry.py
+          - name: LangSmith Integration
+            extra: ""
+            test: tests/test_langsmith_exporter.py
+          - name: Human Evaluation
+            extra: ""
+            test: tests/test_human_evaluation.py
+          - name: Online Evaluation
+            extra: ""
+            test: tests/test_online.py
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+      with:
+        version: "latest"
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        if [ "${{ matrix.feature.extra }}" != "" ]; then
+          uv sync --extra ${{ matrix.feature.extra }}
+        else
+          uv sync --all-extras
+        fi
+        uv lock
+    
+    - name: Test ${{ matrix.feature.name }}
+      run: uv run pytest ${{ matrix.feature.test }} -v
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+      with:
+        version: "latest"
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+        uv lock
+    
+    - name: Run security tests
+      run: uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/security.jsonl --output artifacts/security-test.jsonl --overwrite
+    
+    - name: Upload security test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-test-results
+        path: artifacts/security-test.jsonl

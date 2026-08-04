@@ -1,0 +1,27 @@
+# Local development stack for AI Evaluation Harness
+# 
+# This docker-compose file provides Redis for local development.
+# PostgreSQL is provided by Neon (cloud serverless Postgres).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Environment setup:
+#   export DATABASE_URL="postgresql://user:pass@ep-xyz.us-east-2.aws.neon.tech/dbname?sslmode=require"
+#   ai-eval serve
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
