@@ -1,8 +1,8 @@
-# LangGraph Evaluation Harness - Data Flow & Architecture
+# AI Evaluation Harness - Data Flow & Architecture
 
 ## System Overview
 
-The LangGraph Evaluation Harness is a production-oriented evaluation system for LangGraph applications. It executes versioned tasks against AI targets, captures bounded evidence, grades observable outcomes, and produces reproducible release decisions.
+The AI Evaluation Harness is a production-oriented evaluation system for AI applications supporting multiple execution frameworks. It executes versioned tasks against AI targets, captures bounded evidence, grades observable outcomes, and produces reproducible release decisions.
 
 ## High-Level Architecture
 
@@ -20,7 +20,7 @@ The LangGraph Evaluation Harness is a production-oriented evaluation system for 
 │         ▼                   ▼                     ▼                          │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
 │  │   Dataset    │    │   Target     │    │   Exporters  │                  │
-│  │  (jsonl)      │    │  (LangGraph) │    │  (LangSmith) │                  │
+│  │  (jsonl)      │    │  (AI Target)  │    │  (LangSmith) │                  │
 │  └──────────────┘    └──────────────┘    └──────────────┘                  │
 │                             │                     │                          │
 │                             │                     │                          │
@@ -31,13 +31,18 @@ The LangGraph Evaluation Harness is a production-oriented evaluation system for 
 │                    │   + model)   │    │              │                     │
 │                    └──────────────┘    └──────────────┘                     │
 │                                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│  │   Web API    │───▶│   Services   │───▶│   Database   │                  │
+│  │ (FastAPI)    │    │ (Celery/CQRS)│    │ (PostgreSQL) │                  │
+│  └──────────────┘    └──────────────┘    └──────────────┘                  │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
 
 ### 1. CLI Layer (`cli.py`)
-**Entry point:** `lg-eval` command-line interface
+**Entry point:** `ai-eval` command-line interface
 
 **Responsibilities:**
 - Parse command-line arguments
@@ -70,21 +75,21 @@ The LangGraph Evaluation Harness is a production-oriented evaluation system for 
 - `_apply_graders()` - Grading pipeline
 - `_shielded_cleanup()` - Safe sandbox cleanup
 
-### 3. Target Adapter (`langgraph_target.py`)
-**LangGraph integration:** `LangGraphTarget` class
+### 3. Target Adapter (`target.py`)
+**Framework integration:** Target adapter protocol
 
 **Responsibilities:**
-- Wrap compiled LangGraph graphs
-- Install callback handlers for observation
-- Convert case inputs to graph inputs
+- Wrap AI applications (LangGraph, custom frameworks)
+- Install callback handlers for observation (when supported)
+- Convert case inputs to application inputs
 - Extract normalized outputs
 - Capture trajectory events
 - Enforce budget limits during execution
-- Generate loop and retrieval observations
+- Generate loop and retrieval observations (when supported)
 
 **Key Components:**
-- `TrajectoryCallback` - Callback handler for event capture
-- `LangGraphTarget` - Main target adapter
+- `TrajectoryCallback` - Callback handler for event capture (framework-dependent)
+- `LangGraphTarget` - LangGraph-specific target adapter
 - Budget enforcement during execution
 
 ### 4. Grading System (`graders.py`)
@@ -167,7 +172,7 @@ Load evaluation factory
     ▼
 Create EvaluationDefinition
     │
-    ├── Target (LangGraphTarget)
+    ├── Target (AI application adapter)
     ├── Graders (deterministic + optional model)
     ├── Budget (time, cost, limits)
     ├── Suite (default graders, metrics)
@@ -230,7 +235,7 @@ Start telemetry span (evaluation.trial)
 │ Target Execution                    │
 │ ├── Build RunContext                │
 │ ├── Convert case input              │
-│ ├── Invoke LangGraph with callbacks │
+│ ├── Invoke AI application with callbacks │
 │ ├── Enforce budget limits           │
 │ ├── Capture trajectory events       │
 │ ├── Capture loop observations       │
@@ -386,6 +391,33 @@ Return comparison result
 CLI exits with code if thresholds exceeded
 ```
 
+### Phase 7: Web API (Optional)
+
+```
+HTTP Request (POST /api/runs)
+    │
+    ▼
+FastAPI Router
+    │
+    ▼
+EvaluationService (CQRS Command)
+    │
+    ├── Create Run in Database (PostgreSQL)
+    └── Submit Celery Task
+    │
+    ▼
+Return 202 Accepted (Run ID)
+
+... asynchronously ...
+
+Celery Worker
+    │
+    ├── Load Factory & Configuration
+    ├── Initialize EvaluationRunner
+    ├── Execute Trials (Phase 3)
+    └── Save Results to DB
+```
+
 ## Key Data Structures
 
 ### EvalCase Flow
@@ -395,7 +427,7 @@ JSONL Line → EvalCase Model → Trial Execution → Grade Computation → Resu
 
 ### TargetResult Flow
 ```
-LangGraph Execution → Callback Capture → Sanitization → TargetResult Model → Grading
+AI Application Execution → Callback Capture (if supported) → Sanitization → TargetResult Model → Grading
 ```
 
 ### TrialRecord Flow
@@ -655,14 +687,14 @@ Factory Function
 ### CI Integration
 ```bash
 # Run evaluation
-uv run lg-eval run \
+uv run ai-eval run \
     --factory examples.simple_graph:create_evaluation \
     --dataset datasets/example.jsonl \
     --output artifacts/example.jsonl \
     --minimum-pass-rate 1.0
 
 # Compare with baseline
-uv run lg-eval compare \
+uv run ai-eval compare \
     --candidate artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --max-regressions 0 \
@@ -824,34 +856,45 @@ ReleasePolicy(
 )
 ```
 
-### CLI Integration
+### CLI Commands
+
+The CLI provides commands for running evaluations, comparing artifacts, release gating, and serving the web layer.
 
 ```bash
 # Basic release check with deterministic evaluation only
-uv run lg-eval release \
+uv run ai-eval release \
     --deterministic artifacts/results.jsonl \
     --policy strict
 
 # Release check with regression comparison
-uv run lg-eval release \
+uv run ai-eval release \
     --deterministic artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --policy staging
 
 # Release check with judge evaluation
-uv run lg-eval release \
+uv run ai-eval release \
     --deterministic artifacts/deterministic.jsonl \
     --baseline artifacts/baseline.jsonl \
     --judge artifacts/judge.jsonl \
     --policy development
 
 # Custom policy thresholds
-uv run lg-eval release \
+uv run ai-eval release \
     --deterministic artifacts/results.jsonl \
     --baseline artifacts/baseline.jsonl \
     --minimum-overall-pass-rate 0.95 \
     --maximum-regressions 2 \
     --minimum-pass-rate-delta 0.0
+
+# Start the FastAPI web server
+uv run ai-eval serve --host 127.0.0.1 --port 8000
+
+# Start a Celery background worker
+uv run ai-eval worker --concurrency 2
+
+# Scaffold a new evaluation project
+uv run ai-eval init my-evaluation
 ```
 
 ### Release Decision Output
@@ -900,7 +943,7 @@ The Release Gate pattern integrates seamlessly with the existing evaluation harn
 
 ## Summary
 
-The LangGraph Evaluation Harness provides a comprehensive, production-ready evaluation system with:
+The AI Evaluation Harness provides a comprehensive, production-ready evaluation system with:
 
 - **Typed, immutable data models** for reproducibility
 - **LangGraph-native integration** with automatic observation

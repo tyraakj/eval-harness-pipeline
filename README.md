@@ -1,13 +1,13 @@
-# LangGraph Evaluation Harness
+# AI Evaluation Harness
 
-A personal, production-oriented evaluation harness for LangGraph applications. It keeps prompts, datasets, graders, provenance, and JSONL evidence under local control while allowing optional LangSmith tracing.
+A production-oriented evaluation harness for AI applications supporting multiple execution frameworks (LangGraph and others). It keeps prompts, datasets, graders, provenance, and JSONL evidence under local control while allowing optional LangSmith tracing.
 
 ## Included
 
 - Typed and immutable task, result, grade, provenance, and summary models.
-- Native compiled-LangGraph adapter with isolated trial thread IDs.
+- Framework-agnostic target adapter with isolated trial execution contexts.
 - Fail-closed user-supplied sandbox contract with capability preflight and shielded cleanup.
-- Automatic typed LangGraph loop-iteration and retrieval observations.
+- Automatic typed loop-iteration and retrieval observations for frameworks that support them.
 - One absolute provision/target/outcome/grading deadline plus concurrency and evidence budgets.
 - Repeated trials with stable repetition indexes, empirical `pass@k`, and `pass^k`.
 - Named, versioned evaluation suites plus capability, regression, and security summaries.
@@ -26,48 +26,31 @@ A personal, production-oriented evaluation harness for LangGraph applications. I
 - Validated JSONL datasets and durable JSONL result artifacts.
 - Candidate-to-baseline comparison and CI-friendly exit codes.
 - Provider-neutral target and grader protocols.
+- FastAPI web API with Neon PostgreSQL persistence and Celery task queue.
+- YAML-driven evaluation configuration with built-in grader registry.
+- Project scaffolding via `ai-eval init`.
 - Focused tests and a runnable deterministic graph example.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system boundaries and production guidance, and [docs/DATA_FLOW.md](docs/DATA_FLOW.md) for detailed architecture and data flow documentation.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system boundaries and production guidance, [docs/DATA_FLOW.md](docs/DATA_FLOW.md) for detailed data flow documentation, and [docs/MODULE_REFERENCE.md](docs/MODULE_REFERENCE.md) for the complete module map.
 
-## Quick Start (One-Line Install)
+## Quick Start
 
-### Windows (PowerShell)
+### One-Line Install
+
+**Windows (PowerShell):**
 ```powershell
-# One-line install - clones repo, installs uv, and sets up dependencies
 irm https://raw.githubusercontent.com/tyraakj/eval-harness-pipeline/main/install.ps1 | iex
 ```
 
-### macOS/Linux (Bash)
+**macOS/Linux:**
 ```bash
-# One-line install - clones repo, installs uv, and sets up dependencies
 curl -LsSf https://raw.githubusercontent.com/tyraakj/eval-harness-pipeline/main/install.sh | bash
 ```
 
-### Windows (PowerShell)
-```powershell
-cd C:\Users\YourUsername\personal-evaluation-harness
-uv sync --all-extras
-uv lock
-```
+### Manual Setup
 
-### macOS/Linux (Bash)
 ```bash
-cd /path/to/personal-evaluation-harness
-uv sync --all-extras
-uv lock
-```
-
-### Windows (PowerShell)
-```powershell
-cd C:\Users\Tyra\personal-evaluation-harness
-uv sync --all-extras
-uv lock
-```
-
-### macOS/Linux (Bash)
-```bash
-cd /path/to/personal-evaluation-harness
+cd personal-evaluation-harness
 uv sync --all-extras
 uv lock
 ```
@@ -77,7 +60,7 @@ No paid model or hosted account is needed for the included example.
 ## Run the example
 
 ```powershell
-uv run lg-eval run `
+uv run ai-eval run `
 	--factory examples.simple_graph:create_evaluation `
 	--dataset datasets/example.jsonl `
 	--output artifacts/example.jsonl `
@@ -89,7 +72,7 @@ Artifact paths are exclusive by default. Use a new path for each run or pass `--
 Compare a candidate against a protected baseline:
 
 ```powershell
-uv run lg-eval compare `
+uv run ai-eval compare `
 	--candidate artifacts/candidate.jsonl `
 	--baseline artifacts/baseline.jsonl `
 	--max-regressions 0 `
@@ -100,18 +83,18 @@ Make release decisions with the Release Gate:
 
 ```powershell
 # Basic release check (deterministic evaluation only)
-uv run lg-eval release `
+uv run ai-eval release `
 	--deterministic artifacts/results.jsonl `
 	--policy development
 
 # Release check with regression comparison
-uv run lg-eval release `
+uv run ai-eval release `
 	--deterministic artifacts/candidate.jsonl `
 	--baseline artifacts/baseline.jsonl `
 	--policy staging
 
 # Strict production release check
-uv run lg-eval release `
+uv run ai-eval release `
 	--deterministic artifacts/results.jsonl `
 	--baseline artifacts/baseline.jsonl `
 	--policy strict
@@ -131,10 +114,10 @@ uv build
 Create a Python factory that returns `EvaluationDefinition`:
 
 ```python
-from langgraph_eval.definition import EvaluationDefinition
-from langgraph_eval.graders import ContainsAllGrader, ToolPolicyGrader
-from langgraph_eval.langgraph_target import LangGraphTarget
-from langgraph_eval.models import (
+from langgraph_eval.evaluation.definition import EvaluationDefinition
+from langgraph_eval.grading.graders import ContainsAllGrader, ToolPolicyGrader
+from langgraph_eval.targets.langgraph_target import LangGraphTarget
+from langgraph_eval.core.models import (
 		Budget,
 		EvaluationSuite,
 		GraderPolicy,
@@ -186,6 +169,203 @@ Cases may also set `graders` and `tracked_metrics`. Empty task selections inheri
 
 Implement `OutcomeCollector` for authoritative post-execution checks such as database rows, files, browser state, or downstream API state. Collectors run after the LangGraph target and before graders. Their sanitized snapshots are attached to `TargetResult.outcomes`; configure `OutcomeStateGrader(outcome_collector="database")` to grade the collected state instead of the agent's claimed output.
 
+
+
+## Heuristic Graders
+
+Heuristic graders provide flexible, rule-based evaluation when exact matching is too strict. They use approximate algorithms and multi-factor scoring while remaining deterministic (no model calls).
+
+### Available Heuristic Graders
+
+**SimilarityGrader** - String similarity using difflib:
+```python
+from langgraph_eval.grading.graders import SimilarityGrader
+
+grader = SimilarityGrader(
+    minimum_similarity=0.8,  # Require 80% similarity
+    output_path="answer",
+    expected_path="answer"
+)
+```
+
+**LengthGrader** - Output length constraints:
+```python
+from langgraph_eval.grading.graders import LengthGrader
+
+grader = LengthGrader(
+    min_length=10,      # Minimum 10 characters
+    max_length=1000,    # Maximum 1000 characters
+    output_path="answer"
+)
+```
+
+**KeywordPresenceGrader** - Required and prohibited keywords:
+```python
+from langgraph_eval.grading.graders import KeywordPresenceGrader
+
+grader = KeywordPresenceGrader(
+    required_keywords=frozenset(["hello", "world"]),
+    prohibited_keywords=frozenset(["error", "fail"]),
+    case_sensitive=False
+)
+```
+
+**FormatGrader** - Regex pattern validation:
+```python
+from langgraph_eval.grading.graders import FormatGrader
+
+grader = FormatGrader(
+    pattern=r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    pattern_name="email",
+    output_path="answer"
+)
+```
+
+**CompositeHeuristicGrader** - Combine multiple heuristic graders:
+```python
+from langgraph_eval.grading.graders import (
+    CompositeHeuristicGrader,
+    LengthGrader,
+    KeywordPresenceGrader
+)
+
+composite = CompositeHeuristicGrader(
+    graders=(LengthGrader(min_length=5, max_length=100), KeywordPresenceGrader(required_keywords=frozenset(["hello"]))),
+    weights={"length": 0.5, "keyword_presence": 0.5},
+    pass_threshold=0.7
+)
+```
+
+### When to Use Heuristic Graders
+
+- **SimilarityGrader**: When exact matching is too strict but semantic similarity matters
+- **LengthGrader**: When response length requirements are important
+- **KeywordPresenceGrader**: When key information must be present and inappropriate content must be absent
+- **FormatGrader**: When output must match specific patterns (email, phone, dates)
+- **CompositeHeuristicGrader**: When multiple heuristic factors should contribute to a single score
+
+Heuristic graders complement deterministic graders (ExactMatchGrader, ContainsAllGrader) and model judges, providing flexible evaluation options for different use cases.
+
+
+### Failure Mode-Specific Graders
+
+These heuristic graders detect specific failure modes that fluency-only judges miss:
+
+**OverEagernessGrader** - Detects acting on incomplete information:
+```python
+from langgraph_eval.grading.graders import OverEagernessGrader
+
+grader = OverEagernessGrader(
+    min_reasoning_steps=2,  # Require 2 reasoning steps before action
+    action_tools=frozenset({"execute", "run", "call"}),
+    reasoning_tools=frozenset({"think", "reason", "analyze"})
+)
+```
+Catches cases where the agent acts prematurely on partial context or hypothetical scenarios.
+
+**CountPrecisionGrader** - Ensures exact counts:
+```python
+from langgraph_eval.grading.graders import CountPrecisionGrader
+
+grader = CountPrecisionGrader(
+    tolerance=0,  # Zero tolerance = exact match required
+    output_path="count",
+    expected_path="expected_count"
+)
+```
+Catches cases where the agent does 1 instead of 3, or 5 instead of 3.
+
+**CompletenessGrader** - Ensures all required parts are completed:
+```python
+from langgraph_eval.grading.graders import CompletenessGrader
+
+grader = CompletenessGrader(
+    required_parts_path="required_parts",
+    completed_parts_path="completed_parts"
+)
+```
+Catches cases where the agent does one half of a two-part task but forgets the other.
+
+**StateAwarenessGrader** - Checks state before acting:
+```python
+from langgraph_eval.grading.graders import StateAwarenessGrader
+
+grader = StateAwarenessGrader(
+    state_check_tools=frozenset({"read", "get", "fetch", "query"}),
+    action_tools=frozenset({"write", "update", "delete", "schedule"}),
+    require_state_check_before_action=True
+)
+```
+Catches cases where the agent schedules blind without reading the calendar first.
+
+These failure mode graders catch precisely what a fluency-only judge misses and a completion score catches.
+
+## Task Organization
+
+Organize evaluation tasks using tags, separate evaluation runs, and metadata for flexible management without needing task-level suites.
+
+### Using Tags for Task Grouping
+
+Tags provide flexible categorization within a single evaluation suite:
+
+```jsonl
+{"id": "search-001", "input": {"query": "find documents about AI"}, "expected": {"results_count": ">0"}, "tags": ["search", "information-retrieval"], "suite": "capability"}
+{"id": "calc-001", "input": {"expression": "2+2"}, "expected": {"result": 4}, "tags": ["calculation", "math"], "suite": "capability"}
+```
+
+**Tag naming conventions:**
+- **Domain tags**: `search`, `calculation`, `reasoning`, `code-generation`
+- **Complexity tags**: `simple`, `medium`, `complex`, `multi-step`
+- **Feature tags**: `rag`, `tools`, `memory`, `streaming`
+- **Priority tags**: `critical`, `high`, `medium`, `low`
+
+### Creating Separate Evaluation Runs
+
+For different configurations, create separate evaluation runs:
+
+```bash
+# Search evaluation
+uv run ai-eval run --factory your_module:create_search_evaluation --dataset datasets/search_tasks.jsonl --output artifacts/search-results.jsonl
+
+# Calculation evaluation  
+uv run ai-eval run --factory your_module:create_calc_evaluation --dataset datasets/calc_tasks.jsonl --output artifacts/calc-results.jsonl
+```
+
+**Benefits:**
+- Different configurations per task group
+- Independent release decisions
+- Parallel execution capability
+- Focused debugging
+
+### Using Metadata for Task-Specific Requirements
+
+Document requirements and constraints in task metadata:
+
+```jsonl
+{
+  "id": "rag-001",
+  "input": {"question": "What is the capital of France?"},
+  "expected": {"answer": "Paris"},
+  "suite": "capability",
+  "metadata": {
+    "domain": "geography",
+    "requires_rag": true,
+    "min_retrieval_sources": 2,
+    "max_latency_ms": 1000,
+    "priority": "high"
+  }
+}
+```
+
+**Common metadata fields:**
+- `domain`: Task domain
+- `priority`: Task priority level
+- `max_latency_ms`: Maximum acceptable latency
+- `requires_rag`: Whether RAG is required
+- `security_level`: Security classification
+
+See [docs/TASK_ORGANIZATION.md](docs/TASK_ORGANIZATION.md) for detailed examples and best practices.
+
 ## Sandbox lifecycle
 
 `EvaluationRunner` requires a user-supplied `SandboxProvider` by default, validates its declared capabilities before creating the artifact, provisions one `SandboxSession` per trial, and calls `destroy` through a bounded shielded task. Cleanup failure changes the trial to `error`. Security cases cannot opt out of isolation.
@@ -216,7 +396,7 @@ Set `telemetry=EvaluationTelemetry(enabled=True)` on `EvaluationDefinition`, or 
 
 RED instruments include `evaluation.trials`, `evaluation.trial.errors`, and `evaluation.trial.duration`, plus `.requests`, `.errors`, and `.duration` instruments under `evaluation.target`, `evaluation.outcome`, `evaluation.grader`, and `evaluation.export`. Durations use seconds. Metric attributes are deliberately bounded and never contain run, trial, or case IDs; those identifiers remain trace attributes.
 
-The repository includes a free, self-hosted local stack under `observability/`: OpenTelemetry Collector receives OTLP, Prometheus stores metrics and evaluates alerts, Tempo stores traces, and Grafana provisions both datasources plus the `LangGraph Evaluation RED` dashboard. Enable CLI export with `LANGGRAPH_EVAL_OTEL_ENABLED=true`; the CLI flushes providers before exit. See `observability/README.md` for secure local startup, verification, retention, and cleanup commands. The software has no usage fee, but hosting resources may have a cost.
+The `otel` extra uses **OTLP over HTTP** (`opentelemetry-exporter-otlp-proto-http`). The HTTP transport is lighter than gRPC and works with the same collectors. The repository includes a free, self-hosted local stack under `observability/`: OpenTelemetry Collector receives OTLP, Prometheus stores metrics and evaluates alerts, Tempo stores traces, and Grafana provisions both datasources plus the `LangGraph Evaluation RED` dashboard. Enable CLI export with `LANGGRAPH_EVAL_OTEL_ENABLED=true`; the CLI flushes providers before exit. See `observability/README.md` for secure local startup, verification, retention, and cleanup commands.
 
 ## Optional DSPy optimization
 
@@ -250,7 +430,7 @@ Load and verify a released prompt:
 
 ```python
 from pathlib import Path
-from langgraph_eval.prompts import PromptRegistry
+from langgraph_eval.utils.prompts import PromptRegistry
 
 registry = PromptRegistry(Path("prompts"))
 prompt = registry.render(
@@ -270,7 +450,7 @@ LangGraph honors normal LangSmith environment configuration:
 $env:LANGSMITH_TRACING = "true"
 $env:LANGSMITH_API_KEY = "..."
 $env:LANGSMITH_PROJECT = "personal-evaluations"
-uv run lg-eval run --factory your_module:create_evaluation --dataset datasets/your-cases.jsonl
+uv run ai-eval run --factory your_module:create_evaluation --dataset datasets/your-cases.jsonl
 ```
 
 Enter secrets directly in your shell or secret manager; do not commit them. Local artifacts remain the canonical release evidence, so LangSmith availability does not control pass/fail behavior.
@@ -278,7 +458,7 @@ Enter secrets directly in your shell or secret manager; do not commit them. Loca
 For datasets, grader feedback, and review workflows, install the optional integration and add an exporter:
 
 ```python
-from langgraph_eval.langsmith_exporter import LangSmithExporter
+from langgraph_eval.exporters.langsmith_exporter import LangSmithExporter
 
 exporter = LangSmithExporter(
 		dataset_name="support-quality-1.0.0",
@@ -302,12 +482,12 @@ Human evaluation is asynchronous and append-only. It references an immutable tri
 ```python
 from pathlib import Path
 
-from langgraph_eval import (
+from langgraph_eval.evaluation.human import (
 	HumanEvaluationLedger,
-	HumanReleasePolicy,
 	HumanReviewRubric,
 	HumanReviewTask,
 )
+from langgraph_eval.core.models import ReleasePolicy
 
 ledger = HumanEvaluationLedger(Path("artifacts/human-reviews.jsonl"), resume=True)
 await ledger.initialize()
@@ -335,8 +515,8 @@ For LangSmith, annotation feedback must use key `human.<rubric-id>` and provide 
 `OnlineEvaluator` consumes `OnlineEvaluationPolicy` and returns a typed decision for every trace. It rejects the wrong project and expired or future observations, samples deterministically by privacy review and trace ID, reserves declared grader cost against a monthly ledger, bounds grader execution, and sanitizes returned grades.
 
 ```python
-from langgraph_eval.models import OnlineEvaluationPolicy
-from langgraph_eval.online import OnlineEvaluator
+from langgraph_eval.core.models import OnlineEvaluationPolicy
+from langgraph_eval.evaluation.online import OnlineEvaluator
 
 online = OnlineEvaluator(
 		policy=OnlineEvaluationPolicy(
@@ -361,6 +541,51 @@ decision = await online.evaluate(
 
 `InMemoryOnlineCostLedger` is suitable only for local development. Production hosts must inject a durable, atomic ledger shared by all evaluator processes.
 
+## Web API & Background Workers
+
+The harness includes an optional web layer for running evaluations as a service.
+
+### Start the API server
+
+```powershell
+uv sync --extra web
+uv run ai-eval serve --host 127.0.0.1 --port 8000
+```
+
+The FastAPI server provides REST endpoints under `/api/`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/runs` | GET | List evaluation runs (filterable by suite) |
+| `/api/runs/{run_id}` | GET | Get run details |
+| `/api/runs` | POST | Trigger a new evaluation run |
+| `/api/graders` | GET | List available grader types |
+| `/api/datasets` | GET | List available datasets |
+
+The server uses Neon PostgreSQL for persistent storage. Set `DATABASE_URL` to your connection string:
+
+```powershell
+$env:DATABASE_URL = "postgresql+asyncpg://user:pass@your-neon-host/dbname"
+uv run ai-eval serve
+```
+
+### Start a Celery worker
+
+```powershell
+uv run ai-eval worker --concurrency 2 --loglevel info
+```
+
+Requires a running Redis instance as the task broker.
+
+### Scaffold a new project
+
+```powershell
+uv run ai-eval init my-evaluation
+```
+
+Creates a project directory with `datasets/`, `examples/`, `prompts/`, `artifacts/`, a sample dataset, and `.gitignore`.
+
 ## Testing
 
 **Platform Note:** This README shows PowerShell commands for Windows. For macOS/Linux, replace:
@@ -371,31 +596,14 @@ decision = await online.evaluate(
 ### Quick Start Testing
 
 ```bash
-# Windows (PowerShell)
 uv run pytest
 uv run ruff check .
 uv run mypy
-uv run build
-
-# macOS/Linux (Bash)
-uv run pytest
-uv run ruff check .
-uv run mypy
-uv run build
+uv build
 ```
 
-### Comprehensive Feature Testing
+### Unit Tests
 
-#### 1. Quality Checks
-```bash
-# All platforms
-uv run pytest
-uv run ruff check .
-uv run mypy
-uv run build
-```
-
-#### 2. Unit Tests - All Components
 ```bash
 # Core components
 uv run pytest tests/test_datasets.py -v
@@ -423,217 +631,28 @@ uv run pytest tests/test_release_gate.py -v
 uv run pytest --cov=langgraph_eval -v
 ```
 
-#### 3. DSPy Optimization Testing
-```bash
-# Install DSPy extra
-uv sync --extra dspy
+### End-to-End Workflow
 
-# Test DSPy adapter
-uv run pytest tests/test_optimizers.py -v
-
-# Test specific DSPy features
-uv run pytest tests/test_optimizers.py::test_dspy_adapter_compiles_and_records_candidate -v
-uv run pytest tests/test_optimizers.py::test_dspy_adapter_enforces_training_case_limit -v
-uv run pytest tests/test_optimizers.py::test_dspy_adapter_bounds_serialized_candidate_state -v
+```powershell
+uv run ai-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/e2e-test.jsonl --overwrite
+uv run ai-eval compare --candidate artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --max-regressions 2
+uv run ai-eval release --deterministic artifacts/e2e-test.jsonl --policy development
+uv run ai-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy staging
 ```
 
-#### 4. RAG/Retrieval Testing
-```bash
-# Test retrieval metrics grader (Recall@k, Precision@k, MRR)
-uv run pytest tests/test_advanced_evaluation.py::test_retrieval_metrics_grader -v
+### Observability Stack
 
-# Test loop efficiency grader (iteration limits)
-uv run pytest tests/test_advanced_evaluation.py::test_loop_efficiency_grader -v
-
-# Test trajectory subsequence grader
-uv run pytest tests/test_advanced_evaluation.py::test_trajectory_subsequence_grader -v
-```
-
-#### 5. Observability/Telemetry Testing
-```bash
-# Install OTEL extra
+```powershell
 uv sync --extra otel
-
-# Test telemetry
-uv run pytest tests/test_telemetry.py -v
-
-# Test observability integration
-uv run pytest tests/test_observability.py -v
-
-# Windows PowerShell
 Copy-Item observability/.env.example observability/.env
-notepad observability/.env
 docker compose --env-file observability/.env -f observability/docker-compose.yml up -d
 $env:LANGGRAPH_EVAL_OTEL_ENABLED = "true"
 $env:OTEL_SERVICE_NAME = "personal-evaluation-harness"
-$env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"
-$env:OTEL_RESOURCE_ENVIRONMENT = "local"
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
-
-# macOS/Linux
-cp observability/.env.example observability/.env
-$EDITOR observability/.env
-docker compose --env-file observability/.env -f observability/docker-compose.yml up -d
-export LANGGRAPH_EVAL_OTEL_ENABLED=true
-export OTEL_SERVICE_NAME="personal-evaluation-harness"
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
-export OTEL_RESOURCE_ENVIRONMENT="local"
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
-
-# Stop observability stack (all platforms)
-docker compose --env-file observability/.env -f observability/docker-compose.yml down
+$env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318"
+uv run ai-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
 ```
 
-#### 6. LangSmith Integration Testing
-```bash
-# Test LangSmith exporter
-uv run pytest tests/test_langsmith_exporter.py -v
-
-# Test specific LangSmith features
-uv run pytest tests/test_langsmith_exporter.py::test_trace_promotion_uses_source_run_io -v
-uv run pytest tests/test_langsmith_exporter.py::test_completed_annotations_import_into_canonical_human_ledger -v
-
-# Windows PowerShell
-$env:LANGSMITH_TRACING = "true"
-$env:LANGSMITH_API_KEY = "your-api-key"
-$env:LANGSMITH_PROJECT = "personal-evaluations"
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/langsmith-run.jsonl
-
-# macOS/Linux
-export LANGSMITH_TRACING=true
-export LANGSMITH_API_KEY="your-api-key"
-export LANGSMITH_PROJECT="personal-evaluations"
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/langsmith-run.jsonl
-```
-
-#### 7. Human Evaluation Testing
-```bash
-# Test human evaluation ledger
-uv run pytest tests/test_human_evaluation.py -v
-
-# Test specific human evaluation features
-uv run pytest tests/test_human_evaluation.py::test_blind_reviews_require_adjudication_and_gate_release -v
-uv run pytest tests/test_human_evaluation.py::test_revisions_are_explicit_and_ledger_resumes -v
-uv run pytest tests/test_human_evaluation.py::test_cohen_kappa_uses_paired_active_reviews -v
-```
-
-#### 8. Online Evaluation Testing
-```bash
-# Test online evaluator
-uv run pytest tests/test_online.py -v
-
-# Test specific online evaluation features
-uv run pytest tests/test_online.py::test_online_evaluator_enforces_project_and_retention -v
-uv run pytest tests/test_online.py::test_online_evaluator_runs_sampled_trace -v
-uv run pytest tests/test_online.py::test_online_evaluator_deterministically_skips_unsampled_trace -v
-uv run pytest tests/test_langsmith_exporter.py::test_online_evaluation_requires_all_production_controls -v
-```
-
-#### 9. Sandbox Testing
-```bash
-# Test sandbox provider integration
-uv run pytest tests/test_runner.py -v
-
-# Test sandbox provisioning and cleanup
-uv run pytest tests/test_advanced_evaluation.py -v
-
-# Test security cases with sandbox requirements
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/security.jsonl --output artifacts/security-test.jsonl --overwrite
-```
-
-#### 10. Prompt Testing
-```bash
-# Test prompt registry
-uv run pytest tests/test_prompts.py -v
-
-# Test prompt rendering (Python)
-python -c "from langgraph_eval.prompts import PromptRegistry; from pathlib import Path; registry = PromptRegistry(Path('prompts')); prompt = registry.render('answer-with-context', '1.0.0', {'context': 'test', 'question': 'test'}); print(prompt)"
-
-# Test prompt hash validation (Python)
-python -c "from langgraph_eval.prompts import PromptRegistry; from pathlib import Path; registry = PromptRegistry(Path('prompts')); print(registry.verify('answer-with-context', '1.0.0'))"
-```
-
-#### 11. End-to-End Workflow Testing
-```bash
-# Windows PowerShell
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/e2e-test.jsonl --overwrite
-uv run lg-eval compare --candidate artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --max-regressions 2
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --policy development
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy staging
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy strict
-
-# macOS/Linux
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/e2e-test.jsonl --overwrite
-uv run lg-eval compare --candidate artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --max-regressions 2
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --policy development
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy staging
-uv run lg-eval release --deterministic artifacts/e2e-test.jsonl --baseline artifacts/baseline.jsonl --policy strict
-```
-
-#### 12. Advanced Grading Testing
-```bash
-# Test all deterministic graders
-uv run pytest tests/test_advanced_evaluation.py -v
-
-# Test specific graders
-uv run pytest tests/test_advanced_evaluation.py::test_outcome_state_grader -v
-uv run pytest tests/test_advanced_evaluation.py::test_tool_policy_grader -v
-uv run pytest tests/test_advanced_evaluation.py::test_exact_match_grader -v
-uv run pytest tests/test_advanced_evaluation.py::test_contains_all_grader -v
-```
-
-#### 13. Model Judges Testing
-```bash
-# Test calibrated model judge
-uv run pytest tests/test_advanced_evaluation.py::test_calibrated_model_judge -v
-
-# Test judge cost reservation
-uv run pytest tests/test_advanced_evaluation.py::test_judge_cost_reservation -v
-```
-
-#### 14. CI/CD Integration Testing
-```bash
-# CI-friendly evaluation with exit codes
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/ci-results.jsonl --minimum-pass-rate 0.8
-
-# CI-friendly release gate
-uv run lg-eval release --deterministic artifacts/ci-results.jsonl --policy production
-```
-
-### Platform-Specific Setup
-
-#### Windows (PowerShell)
-```powershell
-cd C:\Users\Tyra\personal-evaluation-harness
-uv sync --all-extras
-uv lock
-```
-
-#### macOS/Linux (Bash)
-```bash
-cd /path/to/personal-evaluation-harness
-uv sync --all-extras
-uv lock
-```
-
-#### Cross-Platform Example Execution
-```bash
-# Single-line commands work on all platforms
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/example.jsonl --minimum-pass-rate 1.0
-
-# Multi-line commands require platform-specific continuation
-# Windows PowerShell
-uv run lg-eval run `
-  --factory examples.simple_graph:create_evaluation `
-  --dataset datasets/example.jsonl `
-  --output artifacts/example.jsonl
-
-# macOS/Linux
-uv run lg-eval run \
-  --factory examples.simple_graph:create_evaluation \
-  --dataset datasets/example.jsonl \
-  --output artifacts/example.jsonl
-```
+> **Note:** The OTLP exporter uses HTTP (port 4318) rather than gRPC. Ensure your collector is configured to accept OTLP/HTTP.
 
 ## Release Gate
 
@@ -645,6 +664,17 @@ The Release Gate pattern provides unified release decisions by coordinating dete
 - **Suite-aware requirements**: Different thresholds for capability, regression, and security suites
 
 See [docs/DATA_FLOW.md](docs/DATA_FLOW.md) for detailed architecture and data flow documentation.
+
+## CLI commands
+
+| Command | Description |
+|---------|-------------|
+| `ai-eval run` | Run an evaluation dataset and return a CI-friendly exit code |
+| `ai-eval compare` | Compare candidate and baseline artifacts by stable case ID |
+| `ai-eval release` | Evaluate whether a release should be allowed based on policy |
+| `ai-eval serve` | Start the FastAPI web server |
+| `ai-eval worker` | Start a Celery background worker |
+| `ai-eval init` | Scaffold a new evaluation project |
 
 ## CI policy
 
