@@ -34,7 +34,7 @@ $env:LANGGRAPH_EVAL_OTEL_ENABLED = "true"
 $env:OTEL_SERVICE_NAME = "personal-evaluation-harness"
 $env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"
 $env:OTEL_RESOURCE_ENVIRONMENT = "local"
-uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
+uv run ai-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/example.jsonl --output artifacts/observed-run.jsonl
 ```
 
 The CLI shuts down both providers in a `finally` block, flushing metrics and spans before the short-lived process exits. When `LANGGRAPH_EVAL_OTEL_ENABLED` is absent or false, no SDK providers or network exporters are created.

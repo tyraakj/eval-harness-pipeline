@@ -85,9 +85,9 @@ An evaluation suite has a stable ID, version, description, default graders, and 
 
 ### Target
 
-A target accepts one task plus a run context and returns normalized output, trajectory events, typed loop and retrieval observations, usage, and an optional trace link. The LangGraph adapter invokes a compiled graph with a unique thread ID and evaluation metadata. Application-specific state conversion remains in explicit input and output builder functions.
+A target accepts one task plus a run context and returns normalized output, trajectory events, typed loop and retrieval observations, usage, and an optional trace link. The target adapter invokes the AI application with a unique execution context and evaluation metadata. Application-specific state conversion remains in explicit input and output builder functions.
 
-LangGraph is the first-class execution backbone and its callback capture is always active. Loop observations record graph-node outcomes, bounded state hashes, and durations. Retrieval observations record query hashes, ranked source IDs, and durations. Their applicability is conditional rather than feature-flagged: graphs without retrieval produce no retrieval observations, while generic non-LangGraph targets may omit loop observations.
+For frameworks that support it (e.g., LangGraph), loop observations record execution-node outcomes, bounded state hashes, and durations. Retrieval observations record query hashes, ranked source IDs, and durations. Their applicability is conditional rather than feature-flagged: applications without retrieval produce no retrieval observations, while generic targets may omit loop observations.
 
 ### Trial
 
@@ -111,13 +111,26 @@ Repeated trials are indexed from zero per case. For $k$ repetitions, empirical `
 
 Cases are classified as `capability`, `regression`, or `security`; summaries report each suite independently so a strong capability score cannot conceal a security failure.
 
+
+### Task organization
+
+The harness supports flexible task organization without requiring task-level suites. Tasks can be organized using three complementary mechanisms:
+
+**Tags** provide runtime categorization and filtering. Tasks carry a frozenset of tag strings for grouping by domain (e.g., `search`, `calculation`), complexity (e.g., `simple`, `complex`), feature (e.g., `rag`, `tools`), or priority (e.g., `critical`, `high`). Tags are optional and do not affect execution but enable post-run analysis and filtering. Consistent tag naming conventions across a team improve discoverability and maintainability.
+
+**Separate evaluation runs** accommodate different configurations for distinct task groups. When task groups require different graders, budgets, policies, or target versions, create separate evaluation runs with dedicated datasets and suite configurations. This maintains architectural simplicity while providing the flexibility to treat different domains or environments independently. Separate runs also enable parallel execution and focused debugging.
+
+**Metadata** documents task-specific requirements and constraints. Each task carries a dictionary of metadata fields for recording domain, priority, performance requirements (e.g., `max_latency_ms`), security controls (e.g., `prohibited_tools`, `required_controls`), RAG requirements (e.g., `requires_rag`, `min_retrieval_sources`), and requirement tracking (e.g., `requirement_id`, `acceptance_criteria`). Metadata is preserved in trial records and can be used by custom gradaders for task-specific logic. Standardized metadata schemas ensure consistency across the evaluation suite.
+
+This three-tier approach—tags for categorization, separate runs for configuration differences, and metadata for documentation and custom logic—provides comprehensive task organization without the complexity of task-level suites. The single-suite-per-run architecture remains clear and legible while accommodating diverse organizational needs.
+
 ### RAG contract
 
 RAG cases provide a non-empty set of relevant source IDs. Retrieval events provide a unique ranked list of observed source IDs. The deterministic retrieval grader computes Recall@$k$, Precision@$k$, and reciprocal rank at a configured $k$ and applies explicit thresholds. Full document content is not required in the metric artifact.
 
 ### Loop contract
 
-Each observed LangGraph node execution records its zero-based iteration index, node name, outcome, duration, and a hash of its sanitized output state. The loop contract also records the terminal reason. The deterministic loop grader can enforce iteration ceilings, repeated-node limits, and allowed terminal reasons without owning or changing the graph's orchestration logic.
+Each observed application node execution (when supported by the framework) records its zero-based iteration index, node name, outcome, duration, and a hash of its sanitized output state. The loop contract also records the terminal reason. The deterministic loop grader can enforce iteration ceilings, repeated-node limits, and allowed terminal reasons without owning or changing the application's orchestration logic.
 
 ### Model judges
 
@@ -141,7 +154,7 @@ The optional local stack sends OTLP to an OpenTelemetry Collector, exposes metri
 
 ### DSPy optimizer
 
-DSPy is an optional candidate-generation adapter outside the evaluation loop. It compiles a student program from an explicit training split and returns both the runtime program and an immutable candidate manifest containing optimizer identity, training-dataset hash, sanitized program state, and program hash. The candidate is then embedded in a newly versioned LangGraph target and evaluated through the ordinary runner.
+DSPy is an optional candidate-generation adapter outside the evaluation loop. It compiles a student program from an explicit training split and returns both the runtime program and an immutable candidate manifest containing optimizer identity, training-dataset hash, sanitized program state, and program hash. The candidate is then embedded in a newly versioned target and evaluated through the ordinary runner.
 
 DSPy does not own canonical datasets, prompt releases, graders, transcripts, comparison, or release policy. Protected regression and test cases must not be supplied as optimizer training data. Candidate-state persistence is bounded and sanitized, but optimization examples still require privacy review. Provider token, call, and monetary limits must be enforced by the DSPy language-model or optimizer configuration because those calls occur before evaluation trials begin.
 
@@ -250,6 +263,31 @@ Aggregate scores alone are insufficient. Decisions should inspect slices such as
 - Define artifact encryption, access, retention, and deletion outside the package.
 
 Regex redaction is only a baseline. High-risk data requires allowlisted artifact schemas and a dedicated secret/PII scanner.
+
+## Web Layer
+
+The harness includes an optional web layer for running evaluations as a service, decoupling execution from the CLI. This is located under `api/`, `db/`, `services/`, and `schemas/`.
+
+- **FastAPI API**: Provides REST endpoints (e.g., `/api/runs`, `/api/health`) to trigger evaluations and retrieve results.
+- **Neon PostgreSQL Persistence**: Uses SQLAlchemy `AsyncSession` to durably store evaluation metadata, trial records, and summaries, allowing historical analysis and querying outside the JSONL artifact workflow.
+- **Celery Workers**: Background workers driven by Redis handle the actual evaluation execution asynchronously. This ensures the API remains responsive while long-running evaluations process in the background.
+- **CQRS Pattern**: The web layer separates read queries (`ListRunsQuery`, `GetRunDetailQuery`) from write commands, improving maintainability and scaling.
+
+## Module Map
+
+- `api/`: FastAPI application, routes, and dependency injection.
+- `cli/`: Command-line interface definitions (`run`, `compare`, `release`, `serve`, `worker`, `init`).
+- `core/`: Core data models, configuration loaders, and foundational types.
+- `db/`: SQLAlchemy models, migrations (Alembic), and database session management.
+- `evaluation/`: The core evaluation loop, runner, release gate logic, online evaluators, and human review ledgers.
+- `exporters/`: Background workers for exporting results to external systems (e.g., LangSmith).
+- `grading/`: Implementations of deterministic and heuristic graders.
+- `monitoring/`: OpenTelemetry tracing and metrics instrumentation.
+- `schemas/`: Pydantic schemas for API request/response validation.
+- `security/`: Sandbox provider interfaces and security-related contracts.
+- `services/`: Business logic services connecting the API routes to the database and evaluation runner.
+- `targets/`: Adapters for evaluated applications (e.g., LangGraphTarget).
+- `utils/`: Shared utilities (e.g., prompt registries).
 
 ## Extension points
 
