@@ -1,0 +1,67 @@
+:root {
+  --bg-primary: #2d2d2d;
+  --bg-surface: #ffffff;
+  
+  --text-main: #1a1a1a;
+  --text-muted: #5a5a5a;
+  
+  --accent-purple: #f3e8ff;
+  --accent-purple-text: #9333ea;
+  
+  --accent-yellow: #fef9c3;
+  --accent-yellow-text: #ca8a04;
+  
+  --accent-green: #dcfce7;
+  --accent-green-text: #16a34a;
+  
+  --btn-dark: #333333;
+  --btn-dark-hover: #1a1a1a;
+  
+  --font-sans: var(--font-sans, system-ui);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #f9f9f9;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative; /* For pseudo-element stacking */
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    linear-gradient(rgba(245, 245, 245, 0.85), rgba(245, 245, 245, 0.85)),
+    url('/bg-halftone.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  pointer-events: none;
+  transform: scale(1.05); /* Pushes baked-in image borders off-screen */
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

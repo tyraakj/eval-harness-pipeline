@@ -7,3 +7,4 @@ dist/
 build/
 artifacts/*.jsonl
 .env
+glyph.db

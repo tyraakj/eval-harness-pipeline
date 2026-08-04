@@ -1,0 +1,112 @@
+.terminalContainer {
+  width: 100%;
+  background-color: #1e1e1e;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+  position: relative;
+  z-index: 20;
+  height: 100%;
+}
+
+.titleBar {
+  background-color: #2d2d2d;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid #111;
+  flex-shrink: 0;
+}
+
+.trafficLights {
+  position: absolute;
+  left: 1rem;
+  display: flex;
+  gap: 8px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.dotRed { background-color: #ff5f56; }
+.dotYellow { background-color: #ffbd2e; }
+.dotGreen { background-color: #27c93f; }
+
+.titleText {
+  color: #a0a0a0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.tabsContainer {
+  background-color: #252526;
+  display: flex;
+  border-bottom: 1px solid #111;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tab {
+  padding: 0.75rem 1.5rem;
+  color: #888;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  position: relative;
+  border-right: 1px solid #333;
+}
+
+.tab:hover {
+  color: #ccc;
+}
+
+.activeTab {
+  color: #fff;
+}
+
+.activeIndicator {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  background-color: #007acc; /* VS Code blue accent */
+  border-radius: 2px 2px 0 0;
+}
+
+.terminalBody {
+  padding: 1.5rem;
+  font-family: 'Courier New', Courier, monospace; /* generic monospace fallback if custom fails */
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #d4d4d4;
+  height: 300px; /* fixed height to prevent layout shift */
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  flex: 1;
+}
+
+.terminalBody::-webkit-scrollbar {
+  display: none;
+}
+.terminalBody {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.cliLine {
+  margin-bottom: 0.5rem;
+}
+
+.colorPass { color: #4ade80; font-weight: bold; }
+.colorWarn { color: #facc15; font-weight: bold; }
+.colorFail { color: #f87171; font-weight: bold; }
+.colorDim { color: #6b7280; }
+.colorCyan { color: #22d3ee; }
