@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_eval.datasets import load_jsonl
+from langgraph_eval.utils.datasets import load_jsonl
 
 
 def test_dataset_rejects_duplicate_ids(tmp_path: Path) -> None:

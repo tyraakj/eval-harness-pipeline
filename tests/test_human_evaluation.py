@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_eval.human import (
+from langgraph_eval.evaluation.human import (
     HumanAdjudication,
     HumanEvaluationLedger,
     HumanGrade,

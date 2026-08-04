@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from langgraph_eval.exporting import ExportDispatcher
-from langgraph_eval.models import (
+from langgraph_eval.exporters.exporting import ExportDispatcher
+from langgraph_eval.core.models import (
     EvalCase,
     ExportPolicy,
     Provenance,
