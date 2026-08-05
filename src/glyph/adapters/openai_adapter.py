@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from glyph.core.models import EvalCase, TargetResult
 from glyph.security.contracts import Target
+from glyph.security.sandbox import RunContext
 
 
 def create_openai_target(
@@ -44,12 +46,12 @@ def create_openai_target(
         def version(self) -> str:
             return f"openai:{model}"
         
-        async def __call__(self, input: dict[str, Any]) -> dict[str, Any]:
+        async def execute(self, case: EvalCase, context: RunContext) -> TargetResult:
             """Invoke OpenAI GPT API."""
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": str(input)})
+            messages.append({"role": "user", "content": str(case.input)})
             
             response = await client.chat.completions.create(
                 model=model,
@@ -59,13 +61,18 @@ def create_openai_target(
                 **kwargs,
             )
             
-            return {
-                "content": response.choices[0].message.content,
-                "model": model,
-                "usage": {
-                    "input_tokens": response.usage.prompt_tokens,
-                    "output_tokens": response.usage.completion_tokens,
+            return TargetResult(
+                output={
+                    "content": response.choices[0].message.content,
+                    "model": model,
+                    "usage": {
+                        "input_tokens": response.usage.prompt_tokens,
+                        "output_tokens": response.usage.completion_tokens,
+                    },
                 },
-            }
+                trajectory=[],
+                outcomes=[],
+                retrievals=[],
+            )
     
     return OpenAITarget()

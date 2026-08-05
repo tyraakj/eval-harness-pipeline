@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from glyph.core.models import EvalCase, TargetResult
 from glyph.security.contracts import Target
+from glyph.security.sandbox import RunContext
 
 
 def create_http_target(
@@ -38,7 +40,7 @@ def create_http_target(
         def version(self) -> str:
             return f"http:{url}"
         
-        async def __call__(self, input: dict[str, Any]) -> dict[str, Any]:
+        async def execute(self, case: EvalCase, context: RunContext) -> TargetResult:
             """Invoke HTTP endpoint."""
             async with httpx.AsyncClient(timeout=timeout) as client:
                 request_kwargs = {
@@ -48,13 +50,18 @@ def create_http_target(
                 }
                 
                 if method.upper() in ["POST", "PUT", "PATCH"]:
-                    request_kwargs["json"] = {**kwargs, **input}
+                    request_kwargs["json"] = {**kwargs, **case.input}
                 else:
-                    request_kwargs["params"] = {**kwargs, **input}
+                    request_kwargs["params"] = {**kwargs, **case.input}
                 
                 response = await client.request(**request_kwargs)
                 response.raise_for_status()
                 
-                return response.json()
+                return TargetResult(
+                    output=response.json(),
+                    trajectory=[],
+                    outcomes=[],
+                    retrievals=[],
+                )
     
     return HTTPTarget()

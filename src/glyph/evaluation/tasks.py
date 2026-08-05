@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 from celery import Celery
+from sqlalchemy import update
 
 from glyph.cli.cli import _load_factory
 from glyph.core.models import RunSummary
@@ -30,6 +31,13 @@ async def _execute_and_save_run(config: dict[str, Any], run_id: str) -> dict[str
     
     if not factory_ref or not dataset_path:
         raise ValueError("config must include 'factory' and 'dataset'")
+    
+    # Update status to running
+    async with get_session() as session:
+        await session.execute(
+            update(Run).where(Run.id == run_id).values(status="running")
+        )
+        await session.commit()
         
     # Load definition
     definition = _load_factory(factory_ref)()
@@ -59,37 +67,69 @@ async def _execute_and_save_run(config: dict[str, Any], run_id: str) -> dict[str
     # Run evaluation
     summary: RunSummary = await runner.run(cases, run_id=run_id)
     
-    # Save to database
+    # Update database with results
     async with get_session() as session:
-        db_run = Run(
-            id=run_id,
-            suite_id=summary.suite_id,
-            suite_version=summary.suite_version,
-            started_at=summary.started_at,
-            finished_at=summary.finished_at,
-            total=summary.total,
-            cases=summary.cases,
-            passed=summary.passed,
-            failed=summary.failed,
-            errors=summary.errors,
-            timeouts=summary.timeouts,
-            pass_rate=summary.pass_rate,
-            average_score=summary.average_score,
-            artifact_path=str(summary.artifact_path),
-            summary=summary.model_dump(mode="json"),
+        await session.execute(
+            update(Run)
+            .where(Run.id == run_id)
+            .values(
+                suite_id=summary.evaluation_suite_id,
+                suite_version=summary.evaluation_suite_version,
+                status="completed",
+                started_at=summary.started_at,
+                finished_at=summary.finished_at,
+                total=summary.total,
+                cases=summary.cases,
+                passed=summary.passed,
+                failed=summary.failed,
+                errors=summary.errors,
+                timeouts=summary.timeouts,
+                pass_rate=summary.pass_rate,
+                average_score=summary.average_score,
+                artifact_path=str(summary.artifact_path),
+                summary=summary.model_dump(mode="json"),
+            )
         )
-        session.add(db_run)
         await session.commit()
         
     return summary.model_dump(mode="json")
 
 
-@celery_app.task(bind=True)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def run_evaluation(self, config: dict, run_id: str) -> dict:
     """Execute evaluation run as a background task."""
     self.update_state(state="PROGRESS", meta={"run_id": run_id, "status": "running"})
     
-    # Execute the async runner in a new event loop
-    result_dict = asyncio.run(_execute_and_save_run(config, run_id))
-    
-    return {"run_id": run_id, "status": "completed", "summary": result_dict}
+    try:
+        # Execute the async runner in a new event loop
+        result_dict = asyncio.run(_execute_and_save_run(config, run_id))
+        
+        return {"run_id": run_id, "status": "completed", "summary": result_dict}
+    except Exception as exc:
+        # Update DB status to failed
+        asyncio.run(_update_run_status_failed(run_id, str(exc)))
+        
+        # Retry for transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc)
+        
+        # For non-retryable errors or max retries exceeded
+        return {"run_id": run_id, "status": "failed", "error": str(exc)}
+
+
+async def _update_run_status_failed(run_id: str, error_message: str) -> None:
+    """Update run status to failed in database."""
+    async with get_session() as session:
+        from sqlalchemy import update
+        from datetime import datetime, timezone
+        
+        await session.execute(
+            update(Run)
+            .where(Run.id == run_id)
+            .values(
+                status="failed",
+                finished_at=datetime.now(timezone.utc),
+                summary={"error": error_message, "status": "failed"},
+            )
+        )
+        await session.commit()

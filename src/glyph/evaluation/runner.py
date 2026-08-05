@@ -2,25 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import importlib.metadata
+import inspect
 import os
 import time
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from glyph.utils.artifacts import JsonlArtifactWriter
-from glyph.security.contracts import (
-    EvaluationExporter,
-    Grader,
-    OutcomeCollector,
-    RunContext,
-    SandboxProvider,
-    Target,
-)
-from glyph.exporters.exporting import ExportDispatcher
-from glyph.targets.langgraph_target import BudgetExceededError
 from glyph.core.models import (
     Budget,
     EvalCase,
@@ -40,9 +30,20 @@ from glyph.core.models import (
     TrialRecord,
     TrialStatus,
 )
-from glyph.security.sandbox import NoopSandboxProvider
+from glyph.exporters.exporting import ExportDispatcher
 from glyph.monitoring.telemetry import EvaluationTelemetry
+from glyph.security.contracts import (
+    EvaluationExporter,
+    Grader,
+    OutcomeCollector,
+    RunContext,
+    SandboxProvider,
+    Target,
+)
+from glyph.security.sandbox import NoopSandboxProvider
+from glyph.targets.langgraph_target import BudgetExceededError
 from glyph.utils import canonical_json, content_hash, sanitize, sanitize_text
+from glyph.utils.artifacts import JsonlArtifactWriter
 
 DEFAULT_TRACKED_METRICS = frozenset(
     {"turns", "tool_calls", "tokens", "latency", "cost", "loop_iterations", "retrievals"}
@@ -70,6 +71,10 @@ class EvaluationRunner:
         prompt_hashes: dict[str, str] | None = None,
         code_revision: str | None = None,
         overwrite_artifact: bool = False,
+        trial_observer: Callable[[TrialRecord], Awaitable[None] | None] | None = None,
+        trial_started_observer: (
+            Callable[[EvalCase, int], Awaitable[None] | None] | None
+        ) = None,
     ) -> None:
         if not graders:
             raise ValueError("At least one grader is required")
@@ -120,6 +125,8 @@ class EvaluationRunner:
         self.prompt_hashes = prompt_hashes or {}
         environment_revision = os.getenv("GIT_COMMIT")
         self.code_revision = code_revision or environment_revision or "unknown"
+        self.trial_observer = trial_observer
+        self.trial_started_observer = trial_started_observer
 
     async def run(self, cases: Sequence[EvalCase], *, run_id: str | None = None) -> RunSummary:
         if not cases:
@@ -150,10 +157,13 @@ class EvaluationRunner:
             self.exporters, self.export_policy, telemetry=self.telemetry
         )
         await dispatcher.start()
-        dataset_hash = content_hash(canonical_json([case.model_dump(mode="json") for case in cases]))
+        dataset_hash = content_hash(
+            canonical_json([case.model_dump(mode="json") for case in cases])
+        )
 
         async def bounded(case: EvalCase, repetition_index: int) -> TrialRecord:
             async with semaphore:
+                await self._notify_trial_started(case, repetition_index)
                 with self.telemetry.span(
                     "evaluation.trial",
                     {
@@ -170,6 +180,7 @@ class EvaluationRunner:
                 await self.writer.append(
                     record, max_record_bytes=self.budget.max_trial_artifact_bytes
                 )
+                await self._notify_trial(record)
                 await dispatcher.submit_trial(case, record)
                 return record
 
@@ -255,6 +266,31 @@ class EvaluationRunner:
         summary = summary.model_copy(update={"export_errors": tuple(dispatcher.errors)})
         await self.writer.append(summary)
         return summary
+
+    async def _notify_trial(self, record: TrialRecord) -> None:
+        """Notify optional UI observers after durable local persistence.
+
+        Observer failures must never alter evidence, grading, or release policy.
+        """
+        if self.trial_observer is None:
+            return
+        try:
+            notified = self.trial_observer(record)
+            if inspect.isawaitable(notified):
+                await notified
+        except Exception:
+            return
+
+    async def _notify_trial_started(self, case: EvalCase, repetition_index: int) -> None:
+        """Notify optional UI observers when a trial actually starts executing."""
+        if self.trial_started_observer is None:
+            return
+        try:
+            notified = self.trial_started_observer(case, repetition_index)
+            if inspect.isawaitable(notified):
+                await notified
+        except Exception:
+            return
 
     @staticmethod
     async def _close_dispatcher(dispatcher: ExportDispatcher) -> None:

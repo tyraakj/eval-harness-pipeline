@@ -26,6 +26,7 @@ class Run(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     suite_id: Mapped[str] = mapped_column(String, index=True)
     suite_version: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="queued", index=True)
     started_at: Mapped[datetime] = mapped_column(index=True)
     finished_at: Mapped[datetime]
     total: Mapped[int]
@@ -42,6 +43,7 @@ class Run(Base):
     __table_args__ = (
         Index("idx_runs_suite_started", "suite_id", "started_at"),
         Index("idx_runs_pass_rate", "pass_rate"),
+        Index("idx_runs_status", "status"),
     )
 
 

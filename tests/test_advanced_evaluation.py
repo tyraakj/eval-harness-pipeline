@@ -9,13 +9,14 @@ from langchain_core.outputs import ChatGeneration, LLMResult
 
 from glyph.security.contracts import RunContext
 from glyph.grading.graders import (
+    ContextCoverageGrader,
+    DuplicateRateGrader,
     LoopEfficiencyGrader,
     OutcomeStateGrader,
     RetrievalMetricsGrader,
+    RerankingLatencyGrader,
     TrajectorySubsequenceGrader,
 )
-from glyph.grading.judges import CalibratedModelJudge, JudgeDecision
-from glyph.targets.langgraph_target import TrajectoryCallback
 from glyph.core.models import (
     Budget,
     EvalCase,
@@ -30,6 +31,9 @@ from glyph.core.models import (
     TranscriptCapturePolicy,
     TrialStatus,
 )
+from glyph.grading.judges import CalibratedModelJudge, JudgeDecision
+from glyph.security.contracts import RunContext
+from glyph.targets.langgraph_target import TrajectoryCallback
 from glyph.evaluation.runner import EvaluationRunner
 
 
@@ -112,7 +116,7 @@ async def test_state_trajectory_and_retrieval_graders() -> None:
         expected=("tool_start:search", "tool_end:search")
     ).grade(case, result)
     retrieval = await RetrievalMetricsGrader(
-        k=3, minimum_recall=1.0, minimum_precision=0.3, minimum_mrr=0.5
+        k=3, minimum_recall=1.0, minimum_precision=0.3, minimum_mrr=0.5, minimum_ndcg=0.3
     ).grade(case, result)
 
     assert state.passed
@@ -122,6 +126,7 @@ async def test_state_trajectory_and_retrieval_graders() -> None:
     assert retrieval.evidence["recall_at_k"] == 1.0
     assert retrieval.evidence["precision_at_k"] == pytest.approx(1 / 3)
     assert retrieval.evidence["mrr"] == 0.5
+    assert "ndcg" in retrieval.evidence
 
 
 @pytest.mark.asyncio
@@ -257,3 +262,122 @@ async def test_model_judge_reserves_run_cost_before_call(tmp_path: Path) -> None
     assert summary.judge_cost_usd == 0.04
     records = artifact.read_text("utf-8")
     assert TrialStatus.BUDGET_EXCEEDED.value in records
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rate_grader() -> None:
+    """Test duplicate rate grader with and without duplicates."""
+    case = EvalCase(id="test-1", input={})
+    
+    # Test with duplicates
+    result_with_duplicates = TargetResult(
+        output={
+            "retrieved_documents": [
+                {"id": "doc1", "content": "content1"},
+                {"id": "doc2", "content": "content2"},
+                {"id": "doc1", "content": "content1"},  # duplicate
+            ]
+        },
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grader = DuplicateRateGrader(maximum_duplicate_rate=0.1)
+    grade = await grader.grade(case, result_with_duplicates)
+    
+    assert not grade.passed
+    assert grade.evidence["duplicate_rate"] == pytest.approx(1/3)
+    assert grade.evidence["duplicates"] == 1
+    
+    # Test without duplicates
+    result_no_duplicates = TargetResult(
+        output={
+            "retrieved_documents": [
+                {"id": "doc1", "content": "content1"},
+                {"id": "doc2", "content": "content2"},
+                {"id": "doc3", "content": "content3"},
+            ]
+        },
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grade = await grader.grade(case, result_no_duplicates)
+    assert grade.passed
+    assert grade.evidence["duplicate_rate"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_context_coverage_grader() -> None:
+    """Test context coverage grader."""
+    case = EvalCase(
+        id="test-1",
+        input={},
+        expected={"required_concepts": ["return policy", "shipping time", "refund process"]}
+    )
+    
+    # Test with good coverage
+    result_good = TargetResult(
+        output={
+            "retrieved_context": "The return policy allows 30 days. Shipping time is 3-5 days. The refund process takes 5-7 business days."
+        },
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grader = ContextCoverageGrader(minimum_coverage=0.8)
+    grade = await grader.grade(case, result_good)
+    
+    assert grade.passed
+    assert grade.evidence["coverage"] == 1.0
+    assert len(grade.evidence["covered_concepts"]) == 3
+    
+    # Test with poor coverage
+    result_poor = TargetResult(
+        output={
+            "retrieved_context": "The return policy allows 30 days."
+        },
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grade = await grader.grade(case, result_poor)
+    assert not grade.passed
+    assert grade.evidence["coverage"] == pytest.approx(1/3)
+
+
+@pytest.mark.asyncio
+async def test_reranking_latency_grader() -> None:
+    """Test reranking latency grader."""
+    case = EvalCase(id="test-1", input={})
+    
+    # Test with acceptable latency
+    result_fast = TargetResult(
+        output={"reranking_latency_ms": 500},
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grader = RerankingLatencyGrader(maximum_latency_ms=1000.0)
+    grade = await grader.grade(case, result_fast)
+    
+    assert grade.passed
+    assert grade.score == 1.0
+    
+    # Test with high latency
+    result_slow = TargetResult(
+        output={"reranking_latency_ms": 1500},
+        trajectory=[],
+        outcomes=[],
+        retrievals=[],
+    )
+    
+    grade = await grader.grade(case, result_slow)
+    assert not grade.passed
+    assert grade.score < 1.0
+    assert grade.evidence["latency_ms"] == 1500

@@ -25,6 +25,7 @@ class RunResponse(BaseModel):
     id: str
     suite_id: str
     suite_version: str
+    status: str = Field(description="Current status of the run (queued, running, completed, failed)")
     started_at: datetime
     finished_at: datetime
     total: int
@@ -46,6 +47,7 @@ class RunListItem(BaseModel):
     id: str
     suite_id: str
     suite_version: str
+    status: str = Field(description="Current status of the run (queued, running, completed, failed)")
     started_at: datetime
     finished_at: datetime
     total: int

@@ -8,9 +8,6 @@ from typing import TypedDict
 import pytest
 from langgraph.graph import END, START, StateGraph
 
-from glyph.security.contracts import RunContext
-from glyph.grading.graders import ExactMatchGrader
-from glyph.targets.langgraph_target import LangGraphTarget
 from glyph.core.models import (
     Budget,
     EvalCase,
@@ -20,6 +17,9 @@ from glyph.core.models import (
     TrialStatus,
 )
 from glyph.evaluation.runner import EvaluationRunner
+from glyph.grading.graders import ExactMatchGrader
+from glyph.security.contracts import RunContext
+from glyph.targets.langgraph_target import LangGraphTarget
 
 
 class State(TypedDict, total=False):
@@ -138,6 +138,23 @@ async def test_runner_records_failure_without_aborting_suite(tmp_path: Path) -> 
     ).run(cases)
     assert summary.failed == 1
     assert summary.pass_rate == 0
+
+
+@pytest.mark.asyncio
+async def test_runner_notifies_trial_observer_after_each_trial(tmp_path: Path) -> None:
+    observed: list[TrialRecord] = []
+
+    await EvaluationRunner(
+        target=graph_target(),
+        graders=[ExactMatchGrader()],
+        budget=Budget(),
+        artifact_path=tmp_path / "results.jsonl",
+        sandbox_requirements=SandboxRequirements(required=False),
+        trial_observer=observed.append,
+    ).run([EvalCase(id="one", input={"value": "ok"}, expected={"answer": "OK"})])
+
+    assert [record.case_id for record in observed] == ["one"]
+    assert observed[0].status is TrialStatus.PASSED
 
 
 @pytest.mark.asyncio

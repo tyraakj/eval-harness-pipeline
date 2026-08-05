@@ -85,6 +85,31 @@ class RunService:
         """
         generated_run_id = run_id or f"run-{uuid4()}"
         
+        # Create DB record first for durability
+        async with get_session() as session:
+            from datetime import datetime, timezone
+            
+            db_run = Run(
+                id=generated_run_id,
+                suite_id="pending",  # Will be updated by task
+                suite_version="pending",  # Will be updated by task
+                status="queued",
+                started_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(timezone.utc),  # Temporary, will be updated
+                total=0,  # Will be updated by task
+                cases=0,  # Will be updated by task
+                passed=0,
+                failed=0,
+                errors=0,
+                timeouts=0,
+                pass_rate=0.0,
+                average_score=0.0,
+                artifact_path=None,
+                summary={"config": config, "status": "queued"},
+            )
+            session.add(db_run)
+            await session.commit()
+        
         # Dispatch to Celery background worker
         task = run_evaluation.delay(config, generated_run_id)
         

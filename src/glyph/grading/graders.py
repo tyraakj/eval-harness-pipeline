@@ -225,13 +225,14 @@ class RetrievalMetricsGrader:
     minimum_recall: float = 1.0
     minimum_precision: float = 0.0
     minimum_mrr: float = 0.0
+    minimum_ndcg: float = 0.0
     name: str = "retrieval_metrics"
     version: str = "1.0.0"
 
     def __post_init__(self) -> None:
         if self.k < 1:
             raise ValueError("k must be at least one")
-        for threshold in (self.minimum_recall, self.minimum_precision, self.minimum_mrr):
+        for threshold in (self.minimum_recall, self.minimum_precision, self.minimum_mrr, self.minimum_ndcg):
             if not 0 <= threshold <= 1:
                 raise ValueError("Retrieval metric thresholds must be between zero and one")
 
@@ -265,22 +266,160 @@ class RetrievalMetricsGrader:
             (1 / rank for rank, source_id in enumerate(top_k, start=1) if source_id in relevant),
             0.0,
         )
+        
+        # Calculate nDCG
+        dcg = 0.0
+        for rank, source_id in enumerate(top_k, start=1):
+            if source_id in relevant:
+                dcg += 1.0 / (rank + 1)  # log2(rank+1) simplified to rank+1 for binary relevance
+        # Ideal DCG: all relevant items at top positions
+        idcg = sum(1.0 / (i + 1) for i in range(min(len(relevant), self.k)))
+        ndcg = dcg / idcg if idcg > 0 else 0.0
+        
         passed = (
             recall >= self.minimum_recall
             and precision >= self.minimum_precision
             and reciprocal_rank >= self.minimum_mrr
+            and ndcg >= self.minimum_ndcg
         )
         return Grade(
             grader=self.name,
             version=self.version,
             passed=passed,
-            score=(recall + precision + reciprocal_rank) / 3,
+            score=(recall + precision + reciprocal_rank + ndcg) / 4,
             reason="Retrieval thresholds satisfied" if passed else "Retrieval thresholds not met",
             evidence={
                 "k": self.k,
                 "recall_at_k": recall,
                 "precision_at_k": precision,
                 "mrr": reciprocal_rank,
+                "ndcg": ndcg,
                 "retrieved_source_ids": cast(JsonValue, top_k),
+            },
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateRateGrader:
+    """Grader that penalizes duplicate documents in retrieval results."""
+    output_path: str = "retrieved_documents"
+    maximum_duplicate_rate: float = 0.0
+    name: str = "duplicate_rate"
+    version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.maximum_duplicate_rate <= 1:
+            raise ValueError("Maximum duplicate rate must be between zero and one")
+
+    async def grade(self, case: EvalCase, result: TargetResult) -> Grade:
+        retrieved = _path(result.output, self.output_path)
+        if not isinstance(retrieved, list):
+            raise TypeError("Retrieved documents must be a list")
+        
+        # Check for duplicates by document ID or content hash
+        seen = set()
+        duplicates = 0
+        for doc in retrieved:
+            if isinstance(doc, dict):
+                doc_key = doc.get("id") or doc.get("content_hash") or str(doc)
+            else:
+                doc_key = str(doc)
+            
+            if doc_key in seen:
+                duplicates += 1
+            else:
+                seen.add(doc_key)
+        
+        duplicate_rate = duplicates / len(retrieved) if retrieved else 0.0
+        passed = duplicate_rate <= self.maximum_duplicate_rate
+        score = 1.0 - duplicate_rate
+        
+        return Grade(
+            grader=self.name,
+            version=self.version,
+            passed=passed,
+            score=score,
+            reason="Duplicate rate within threshold" if passed else "Too many duplicates",
+            evidence={
+                "duplicate_rate": duplicate_rate,
+                "duplicates": duplicates,
+                "total_retrieved": len(retrieved),
+            },
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContextCoverageGrader:
+    """Grader that measures how well retrieved context covers the query's information needs."""
+    output_path: str = "retrieved_context"
+    expected_path: str = "required_concepts"
+    minimum_coverage: float = 0.8
+    name: str = "context_coverage"
+    version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.minimum_coverage <= 1:
+            raise ValueError("Minimum coverage must be between zero and one")
+
+    async def grade(self, case: EvalCase, result: TargetResult) -> Grade:
+        required_concepts = set(_path(case.expected, self.expected_path))
+        if not isinstance(required_concepts, set):
+            required_concepts = {str(item) for item in required_concepts}
+        
+        retrieved_context = str(_path(result.output, self.output_path)).lower()
+        
+        # Check which required concepts are mentioned in the retrieved context
+        covered_concepts = {
+            concept for concept in required_concepts
+            if concept.lower() in retrieved_context
+        }
+        
+        coverage = len(covered_concepts) / len(required_concepts) if required_concepts else 1.0
+        passed = coverage >= self.minimum_coverage
+        
+        return Grade(
+            grader=self.name,
+            version=self.version,
+            passed=passed,
+            score=coverage,
+            reason="Context coverage sufficient" if passed else "Context coverage insufficient",
+            evidence={
+                "coverage": coverage,
+                "covered_concepts": cast(JsonValue, sorted(covered_concepts)),
+                "missing_concepts": cast(JsonValue, sorted(required_concepts - covered_concepts)),
+            },
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RerankingLatencyGrader:
+    """Grader that measures reranking operation latency."""
+    output_path: str = "reranking_latency_ms"
+    maximum_latency_ms: float = 1000.0
+    name: str = "reranking_latency"
+    version: str = "1.0.0"
+
+    def __post_init__(self) -> None:
+        if self.maximum_latency_ms < 0:
+            raise ValueError("Maximum latency must be non-negative")
+
+    async def grade(self, case: EvalCase, result: TargetResult) -> Grade:
+        latency = _path(result.output, self.output_path)
+        if not isinstance(latency, (int, float)):
+            raise TypeError("Reranking latency must be a number")
+        
+        passed = latency <= self.maximum_latency_ms
+        # Score degrades linearly as latency increases beyond threshold
+        score = 1.0 if passed else max(0.0, 1.0 - (latency - self.maximum_latency_ms) / self.maximum_latency_ms)
+        
+        return Grade(
+            grader=self.name,
+            version=self.version,
+            passed=passed,
+            score=score,
+            reason="Reranking latency acceptable" if passed else "Reranking latency too high",
+            evidence={
+                "latency_ms": latency,
+                "maximum_latency_ms": self.maximum_latency_ms,
             },
         )
