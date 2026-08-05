@@ -8,7 +8,7 @@ The harness includes an optional web layer for running evaluations as a service.
 
 ```powershell
 uv sync --extra web
-uv run glyph serve --host 127.0.0.1 --port 8000
+glyph serve --host 127.0.0.1 --port 8000
 ```
 
 The FastAPI server provides REST endpoints under `/api/`:
@@ -26,13 +26,13 @@ The server uses Neon PostgreSQL for persistent storage. Set `DATABASE_URL` to yo
 
 ```powershell
 $env:DATABASE_URL = "postgresql+asyncpg://user:pass@your-neon-host/dbname"
-uv run glyph serve
+glyph serve
 ```
 
 ### Start a Celery worker
 
 ```powershell
-uv run glyph worker --concurrency 2 --loglevel info
+glyph worker --concurrency 2 --loglevel info
 ```
 
 Requires a running Redis instance as the task broker.
@@ -40,7 +40,7 @@ Requires a running Redis instance as the task broker.
 ### Scaffold a new project
 
 ```powershell
-uv run glyph init my-evaluation
+glyph init my-evaluation
 ```
 
 Creates a project directory with `datasets/`, `examples/`, `prompts/`, `artifacts/`, a sample dataset, and `.gitignore`.

@@ -687,14 +687,14 @@ Factory Function
 ### CI Integration
 ```bash
 # Run evaluation
-uv run glyph run \
+glyph run \
     --factory examples.simple_graph:create_evaluation \
     --dataset datasets/example.jsonl \
     --output artifacts/example.jsonl \
     --minimum-pass-rate 1.0
 
 # Compare with baseline
-uv run glyph compare \
+glyph compare \
     --candidate artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --max-regressions 0 \
@@ -862,25 +862,25 @@ The CLI provides commands for running evaluations, comparing artifacts, release 
 
 ```bash
 # Basic release check with deterministic evaluation only
-uv run glyph release \
+glyph release \
     --deterministic artifacts/results.jsonl \
     --policy strict
 
 # Release check with regression comparison
-uv run glyph release \
+glyph release \
     --deterministic artifacts/candidate.jsonl \
     --baseline artifacts/baseline.jsonl \
     --policy staging
 
 # Release check with judge evaluation
-uv run glyph release \
+glyph release \
     --deterministic artifacts/deterministic.jsonl \
     --baseline artifacts/baseline.jsonl \
     --judge artifacts/judge.jsonl \
     --policy development
 
 # Custom policy thresholds
-uv run glyph release \
+glyph release \
     --deterministic artifacts/results.jsonl \
     --baseline artifacts/baseline.jsonl \
     --minimum-overall-pass-rate 0.95 \
@@ -888,13 +888,13 @@ uv run glyph release \
     --minimum-pass-rate-delta 0.0
 
 # Start the FastAPI web server
-uv run glyph serve --host 127.0.0.1 --port 8000
+glyph serve --host 127.0.0.1 --port 8000
 
 # Start a Celery background worker
-uv run glyph worker --concurrency 2
+glyph worker --concurrency 2
 
 # Scaffold a new evaluation project
-uv run glyph init my-evaluation
+glyph init my-evaluation
 ```
 
 ### Release Decision Output

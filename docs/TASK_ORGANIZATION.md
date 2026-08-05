@@ -64,13 +64,13 @@ For distinct workflows or requirements, create separate evaluation runs with dif
 **Run evaluations separately:**
 ```bash
 # Search evaluation
-uv run glyph run \
+glyph run \
   --factory your_module:create_search_evaluation \
   --dataset datasets/search_tasks.jsonl \
   --output artifacts/search-results.jsonl
 
 # Calculation evaluation
-uv run glyph run \
+glyph run \
   --factory your_module:create_calc_evaluation \
   --dataset datasets/calculation_tasks.jsonl \
   --output artifacts/calc-results.jsonl
@@ -267,11 +267,11 @@ Consider adding CLI commands to filter by tags and metadata:
 
 ```bash
 # Run only tasks with specific tags
-uv run glyph run --dataset tasks.jsonl --filter-tags search,rag
+glyph run --dataset tasks.jsonl --filter-tags search,rag
 
 # Run only high-priority tasks
-uv run glyph run --dataset tasks.jsonl --filter-metadata priority=high
+glyph run --dataset tasks.jsonl --filter-metadata priority=high
 
 # Combine filters
-uv run glyph run --dataset tasks.jsonl --filter-tags security --filter-metadata security_level=critical
+glyph run --dataset tasks.jsonl --filter-tags security --filter-metadata security_level=critical
 ```

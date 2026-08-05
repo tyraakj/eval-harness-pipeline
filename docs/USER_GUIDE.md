@@ -216,10 +216,10 @@ For different configurations, create separate evaluation runs:
 
 ```bash
 # Search evaluation
-uv run glyph run --factory your_module:create_search_evaluation --dataset datasets/search_tasks.jsonl --output artifacts/search-results.jsonl
+glyph run --factory your_module:create_search_evaluation --dataset datasets/search_tasks.jsonl --output artifacts/search-results.jsonl
 
 # Calculation evaluation  
-uv run glyph run --factory your_module:create_calc_evaluation --dataset datasets/calc_tasks.jsonl --output artifacts/calc-results.jsonl
+glyph run --factory your_module:create_calc_evaluation --dataset datasets/calc_tasks.jsonl --output artifacts/calc-results.jsonl
 ```
 
 **Benefits:**
@@ -341,7 +341,7 @@ LangGraph honors normal LangSmith environment configuration:
 $env:LANGSMITH_TRACING = "true"
 $env:LANGSMITH_API_KEY = "..."
 $env:LANGSMITH_PROJECT = "personal-evaluations"
-uv run glyph run --factory your_module:create_evaluation --dataset datasets/your-cases.jsonl
+glyph run --factory your_module:create_evaluation --dataset datasets/your-cases.jsonl
 ```
 
 Enter secrets directly in your shell or secret manager; do not commit them. Local artifacts remain the canonical release evidence, so LangSmith availability does not control pass/fail behavior.
