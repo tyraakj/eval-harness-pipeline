@@ -6,64 +6,84 @@ import { useGSAP } from '@gsap/react';
 import { useTerminalContext } from '../context/TerminalContext';
 import styles from './TerminalHero.module.css';
 
-const TABS = ['grader.py', 'security_suite.py', 'evidence.jsonl', 'ci_gate.sh'];
+const TABS = ['glyph run', 'glyph compare', 'results.jsonl', 'ci integration'];
 
 const TAB_CONTENT = [
-  // 0: grader.py
+  // 0: glyph run — modelled on actual CLI output
   (
-    <div key="grader">
-      <div className={styles.cliLine}>$ glyph run grader.py --dataset val_v1</div>
-      <div className={styles.cliLine}><span className={styles.colorDim}>&gt; Loading grading heuristics... done</span></div>
-      <div className={styles.cliLine}><span className={styles.colorDim}>&gt; Evaluating 500 samples across 4 parallel workers...</span></div>
+    <div key="run">
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>$ glyph run \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--factory examples.simple_graph:create_evaluation \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--dataset datasets/example.jsonl \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--output artifacts/baseline.jsonl</div>
       <br/>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Format Validation (500/500)</div>
-      <div className={styles.cliLine}>[<span className={styles.colorWarn}>WARN</span>] Tone Alignment (480/500) - 20 cases marginally flagged</div>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Accuracy vs Ground Truth (495/500)</div>
+      <div className={styles.cliLine}><span className={styles.colorCyan}>glyph run</span></div>
+      <div className={styles.cliLine}><span className={styles.colorDim}>  500 cases | 4 workers | datasets/example.jsonl</span></div>
       <br/>
-      <div className={styles.cliLine}><span className={styles.colorCyan}>Overall Score: 98.2%</span> - Ready for review.</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] ContainsAll&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;500/500&nbsp;&nbsp;100.0%</div>
+      <div className={styles.cliLine}>[<span className={styles.colorWarn}>WARN</span>] OutcomeState&nbsp;&nbsp;&nbsp;&nbsp;480/500&nbsp;&nbsp;&nbsp;96.0%</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] ToolPolicy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;495/500&nbsp;&nbsp;&nbsp;99.0%</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Trajectory&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;490/500&nbsp;&nbsp;&nbsp;98.0%</div>
+      <br/>
+      <div className={styles.cliLine}><span className={styles.colorCyan}>Overall: 98.2%</span> — artifacts/baseline.jsonl</div>
     </div>
   ),
-  // 1: security_suite.py
+  // 1: glyph compare
   (
-    <div key="security">
-      <div className={styles.cliLine}>$ glyph run security_suite.py --model claud-3.5-sonnet</div>
-      <div className={styles.cliLine}><span className={styles.colorDim}>&gt; Injecting adversarial prompts from redteam_bank...</span></div>
+    <div key="compare">
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>$ glyph compare \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--candidate artifacts/candidate.jsonl \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--baseline artifacts/baseline.jsonl \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--max-regressions 0</div>
       <br/>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Prompt Injection Defenses</div>
-      <div className={styles.cliLine}>[<span className={styles.colorFail}>FAIL</span>] PII Leakage Detection - <span className={styles.colorDim}>Model emitted simulated SSN on trial #142</span></div>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] System Prompt Extraction Defenses</div>
+      <div className={styles.cliLine}><span className={styles.colorDim}>Comparing 500 paired trials…</span></div>
       <br/>
-      <div className={styles.cliLine}><span className={styles.colorFail}>SECURITY GATE FAILED</span>. View trace: glyph.dev/runs/a9f81</div>
+      <div className={styles.cliLine}>  Baseline&nbsp;&nbsp; 94.5%</div>
+      <div className={styles.cliLine}>  Candidate&nbsp;&nbsp;98.2%&nbsp;&nbsp;<span className={styles.colorPass}>+3.7%</span></div>
+      <br/>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] 0 regressions (threshold: 0)</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Security suite 100%</div>
+      <br/>
+      <div className={styles.cliLine}><span className={styles.colorCyan}>STATUS: MERGEABLE</span></div>
     </div>
   ),
-  // 2: evidence.jsonl
+  // 2: results.jsonl
   (
-    <div key="evidence">
-      <div className={styles.cliLine}>$ head -n 3 evidence.jsonl | jq</div>
+    <div key="results">
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>$ glyph artifacts summary \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--artifact artifacts/baseline.jsonl</div>
+      <br/>
+      <div className={styles.cliLine}><span className={styles.colorDim}>sha256:a1b2c3d4e5f6…  immutable  4.2 MB</span></div>
+      <br/>
       <div className={styles.cliLine} style={{ color: '#dcdcaa' }}>
         &#123;<br/>
-        &nbsp;&nbsp;"id": "case-941",<br/>
-        &nbsp;&nbsp;"input": "Summarize the Q3 report",<br/>
-        &nbsp;&nbsp;"output": "In Q3, revenue grew by 15%...",<br/>
-        &nbsp;&nbsp;"grader_scores": &#123; "accuracy": 1.0, "hallucination": 0.0 &#125;<br/>
+        &nbsp;&nbsp;&quot;trial_id&quot;:&nbsp;&quot;tr_9a8b7c6d&quot;,<br/>
+        &nbsp;&nbsp;&quot;provenance&quot;:&nbsp;&#123;<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&quot;git_hash&quot;:&nbsp;&quot;a1b2c3d4&quot;,<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&quot;target&quot;:&nbsp;&quot;LangGraphTarget@2.3.0&quot;<br/>
+        &nbsp;&nbsp;&#125;,<br/>
+        &nbsp;&nbsp;&quot;scores&quot;:&nbsp;&#123;&nbsp;&quot;contains_all&quot;:&nbsp;1.0&nbsp;&#125;<br/>
         &#125;
       </div>
-      <div className={styles.cliLine}><span className={styles.colorDim}>... (499 more records)</span></div>
     </div>
   ),
-  // 3: ci_gate.sh
+  // 3: ci integration
   (
-    <div key="cigate">
-      <div className={styles.cliLine}>$ ./ci_gate.sh --compare HEAD~1</div>
-      <div className={styles.cliLine}><span className={styles.colorDim}>&gt; Fetching baseline evaluation from main branch...</span></div>
+    <div key="ci">
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>$ glyph release \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--deterministic artifacts/candidate.jsonl \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--baseline artifacts/baseline.jsonl \</div>
+      <div className={styles.cliLine} style={{ color: '#94a3b8' }}>&nbsp;&nbsp;--policy strict</div>
       <br/>
-      <div className={styles.cliLine}>Baseline Pass Rate: 94.5%</div>
-      <div className={styles.cliLine}>Candidate Pass Rate: 98.2%</div>
+      <div className={styles.cliLine}><span className={styles.colorDim}>Verifying provenance hashes…</span></div>
+      <div className={styles.cliLine}><span className={styles.colorDim}>Applying strict release policy…</span></div>
       <br/>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Regression threshold met. (+3.7%)</div>
-      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Performance budget maintained. (Latency &lt; 2s)</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Pass rate 98.2% ≥ 95.0%</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] 0 critical regressions</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Security suite 100%</div>
+      <div className={styles.cliLine}>[<span className={styles.colorPass}>PASS</span>] Provenance hash verified</div>
       <br/>
-      <div className={styles.cliLine}><span className={styles.colorCyan}>STATUS: MERGEABLE</span>. Annotating PR #442...</div>
+      <div className={styles.cliLine}><span className={styles.colorCyan}>RELEASE GATE: PASS</span> — annotating PR #442</div>
     </div>
   )
 ];

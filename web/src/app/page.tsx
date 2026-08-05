@@ -25,10 +25,9 @@ export default function Home() {
         <div className={styles.navLogo}>glyph <span className={styles.navBadge}>beta</span></div>
         
         <div className={styles.navLinks}>
-          <span className={styles.navLink}><span className={styles.iconGreen}>■</span> datasets</span>
-          <span className={styles.navLink}><span className={styles.iconYellow}>◆</span> sandboxes</span>
-          <span className={styles.navLink}><span className={styles.iconPurple}>✦</span> graders</span>
-          <span className={styles.navLink}><span className={styles.iconOutline}>⬡</span> pricing</span>
+          <span className={styles.navLink}>Features</span>
+          <span className={styles.navLink}>How it Works</span>
+          <span className={styles.navLink}>FAQs</span>
         </div>
 
         <button className={styles.navCta}>try it now</button>

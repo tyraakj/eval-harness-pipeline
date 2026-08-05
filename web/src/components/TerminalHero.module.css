@@ -14,7 +14,7 @@
 
 .titleBar {
   background-color: #2d2d2d;
-  height: 36px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,14 +25,14 @@
 
 .trafficLights {
   position: absolute;
-  left: 1rem;
+  left: 0.75rem;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
@@ -42,7 +42,7 @@
 
 .titleText {
   color: #a0a0a0;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -53,16 +53,19 @@
   border-bottom: 1px solid #111;
   position: relative;
   flex-shrink: 0;
+  overflow-x: auto;
 }
+.tabsContainer::-webkit-scrollbar { display: none; }
 
 .tab {
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1rem;
   color: #888;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: color 0.2s;
   position: relative;
   border-right: 1px solid #333;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -77,17 +80,17 @@
   position: absolute;
   bottom: -1px;
   height: 2px;
-  background-color: #007acc; /* VS Code blue accent */
+  background-color: #007acc;
   border-radius: 2px 2px 0 0;
 }
 
 .terminalBody {
-  padding: 1.5rem;
-  font-family: 'Courier New', Courier, monospace; /* generic monospace fallback if custom fails */
-  font-size: 0.875rem;
-  line-height: 1.6;
+  padding: 1.25rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
   color: #d4d4d4;
-  height: 300px; /* fixed height to prevent layout shift */
+  height: 340px;
   overflow-y: auto;
   background-color: #1e1e1e;
   flex: 1;
