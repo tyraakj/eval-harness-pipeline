@@ -678,8 +678,7 @@ def generation_promote(
         error_msg = str(error)
         if "\n" in error_msg:
             # Print each line with proper formatting
-            for line in error_msg.split("\n"):
-                console.print(f"[red]{line}[/red]")
+            console.print(f"[red]{error_msg}[/red]")
             raise typer.Exit(code=1)
         console.print(f"[red]{error_msg}[/red]")
         raise typer.Exit(code=1)
