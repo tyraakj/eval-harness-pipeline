@@ -1,0 +1,2 @@
+{"id":"live-one","input":{"question":"first live event"},"expected":{"contains":["first live event"]},"suite":"capability","tags":["demo"]}
+{"id":"live-two","input":{"question":"second live event"},"expected":{"contains":["second live event"]},"suite":"capability","tags":["demo"]}
