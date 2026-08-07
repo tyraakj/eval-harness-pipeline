@@ -1,0 +1,114 @@
+{
+  "trace_id": "35ab1469-f626-4a7b-b5d2-58c5d94bb784",
+  "run_id": "run-6f485662-8eba-436c-80a1-e8d6467bab88",
+  "started_at": "2026-08-06T12:47:26.446232+00:00",
+  "finished_at": "2026-08-06T12:47:27.484953+00:00",
+  "duration_ms": 1038.721,
+  "spans": [
+    {
+      "span_id": "788e63b4-74dc-4b12-996c-435154f9275e",
+      "parent_id": null,
+      "stage": "dataset_load",
+      "started_at": "2026-08-06T12:47:26.446277+00:00",
+      "finished_at": "2026-08-06T12:47:26.447324+00:00",
+      "duration_ms": 1.047,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "bf173706-e06e-4285-b3c4-ee3b7e535496",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:47:26.451811+00:00",
+      "finished_at": "2026-08-06T12:47:26.451857+00:00",
+      "duration_ms": 0.046,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "b8c5dd01-0205-4718-a8ab-533139e3b739",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:47:26.451904+00:00",
+      "finished_at": "2026-08-06T12:47:27.475261+00:00",
+      "duration_ms": 1023.3570000000001,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "9161ccfe-f881-431f-bd19-4d7b296e2edc",
+      "parent_id": null,
+      "stage": "outcome_collect",
+      "started_at": "2026-08-06T12:47:27.475325+00:00",
+      "finished_at": "2026-08-06T12:47:27.475340+00:00",
+      "duration_ms": 0.015000000000000001,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "957cecb9-9ad4-4544-9ae4-d53223ff508f",
+      "parent_id": null,
+      "stage": "grading",
+      "started_at": "2026-08-06T12:47:27.475370+00:00",
+      "finished_at": "2026-08-06T12:47:27.476192+00:00",
+      "duration_ms": 0.8220000000000001,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "9c955e83-ef9a-4dcd-87b7-3a2f14b8668d",
+      "parent_id": null,
+      "stage": "sandbox_destroy",
+      "started_at": "2026-08-06T12:47:27.476269+00:00",
+      "finished_at": "2026-08-06T12:47:27.476362+00:00",
+      "duration_ms": 0.093,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "e71f941e-555b-4de7-97b2-7b70298e39c3",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:47:27.478766+00:00",
+      "finished_at": "2026-08-06T12:47:27.478818+00:00",
+      "duration_ms": 0.052,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "74ca08c7-aeed-4fdb-b7cb-6446f244c4cf",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:47:27.478888+00:00",
+      "finished_at": null,
+      "duration_ms": null,
+      "status": "started",
+      "error": null,
+      "attributes": {},
+      "events": []
+    }
+  ],
+  "metadata": {
+    "target_version": "live-demo@1.0.0",
+    "suite_id": "default",
+    "suite_version": "1.0.0",
+    "cases_count": 2,
+    "repetitions": 1,
+    "sandbox_provider": "none",
+    "test": "test"
+  }
+}

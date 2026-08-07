@@ -1,0 +1,30 @@
+{
+  "trace_id": "d159dd40-efa7-4c89-8eae-fb3e8795c8cc",
+  "run_id": "run-71cbc146-5eec-4a63-826c-ec6e772c6dec",
+  "started_at": "2026-08-06T12:51:09.936797+00:00",
+  "finished_at": "2026-08-06T12:51:09.940620+00:00",
+  "duration_ms": 3.823,
+  "spans": [
+    {
+      "span_id": "b0611828-0e5b-4437-94eb-a5c2fef6ab7f",
+      "parent_id": null,
+      "stage": "dataset_load",
+      "started_at": "2026-08-06T12:51:09.936883+00:00",
+      "finished_at": "2026-08-06T12:51:09.937110+00:00",
+      "duration_ms": 0.22699999999999998,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    }
+  ],
+  "metadata": {
+    "target_version": "live-demo@1.0.0",
+    "suite_id": "default",
+    "suite_version": "1.0.0",
+    "cases_count": 2,
+    "repetitions": 1,
+    "sandbox_provider": "none",
+    "test": "test"
+  }
+}

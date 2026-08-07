@@ -1,0 +1,16 @@
+{
+  "trace_id": "3587ff95-9305-4879-a625-fdb420c8e466",
+  "run_id": "run-8dbc6b16-a363-47ce-aecb-2bf59e31082c",
+  "started_at": "2026-08-06T12:44:15.343551+00:00",
+  "finished_at": "2026-08-06T12:44:15.343725+00:00",
+  "duration_ms": 0.174,
+  "spans": [],
+  "metadata": {
+    "target_version": "live-demo@1.0.0",
+    "suite_id": "default",
+    "suite_version": "1.0.0",
+    "cases_count": 2,
+    "repetitions": 1,
+    "sandbox_provider": "none"
+  }
+}
