@@ -63,6 +63,8 @@ class OutputFormat:
     """Output format options for CLI commands."""
     RICH = "rich"
     JSON = "json"
+    JSON_STREAM = "json-stream"  # Pi Agent-style event stream
+    RPC = "rpc"  # Pi Agent-style live pipe
     PR_COMMENT = "pr-comment"
 
 
@@ -132,8 +134,16 @@ def print_trial_start(case: EvalCase, repetition_index: int) -> None:
     _flush_console()
 
 
-def print_trial_event(record: TrialRecord) -> None:
+def print_trial_event(record: TrialRecord, output_format: str = OutputFormat.RICH) -> None:
     """Print one completed trial in a compact, agent-style event stream."""
+    if output_format == OutputFormat.JSON_STREAM:
+        _print_trial_event_json_stream(record)
+        return
+    
+    if output_format == OutputFormat.RPC:
+        _print_trial_event_rpc(record)
+        return
+
     status = record.status.value.upper()
     status_style = {
         "PASSED": "glyph.success",
@@ -156,6 +166,58 @@ def print_trial_event(record: TrialRecord) -> None:
         f"{tools} tools [glyph.dim_sep]|[/glyph.dim_sep] "
         f"{tokens} tokens"
     )
+    _flush_console()
+
+
+def _print_trial_event_json_stream(record: TrialRecord) -> None:
+    """Print trial event as a single JSON line for streaming (Pi Agent style)."""
+    import json
+    event = {
+        "event": "trial_complete",
+        "timestamp": record.finished_at.isoformat(),
+        "case_id": record.case_id,
+        "trial_id": record.trial_id,
+        "status": record.status.value,
+        "score": record.score,
+        "duration_ms": record.duration_ms,
+        "suite": record.suite.value,
+        "repetition": record.repetition_index,
+        "usage": {
+            "tool_calls": record.result.usage.tool_calls if record.result else 0,
+            "input_tokens": record.result.usage.input_tokens if record.result else 0,
+            "output_tokens": record.result.usage.output_tokens if record.result else 0,
+            "cost_usd": record.result.usage.cost_usd if record.result else None,
+        } if record.result else None,
+        "grades": [
+            {
+                "grader": grade.grader,
+                "passed": grade.passed,
+                "score": grade.score,
+                "reason": grade.reason,
+            }
+            for grade in record.grades
+        ],
+    }
+    console.print(json.dumps(event))
+    _flush_console()
+
+
+def _print_trial_event_rpc(record: TrialRecord) -> None:
+    """Print trial event in RPC format for live pipe integration (Pi Agent style)."""
+    import json
+    rpc_event = {
+        "jsonrpc": "2.0",
+        "method": "trial.complete",
+        "params": {
+            "case_id": record.case_id,
+            "trial_id": record.trial_id,
+            "status": record.status.value,
+            "score": record.score,
+            "duration_ms": record.duration_ms,
+            "result": record.result.model_dump(mode="json") if record.result else None,
+        },
+    }
+    console.print(json.dumps(rpc_event))
     _flush_console()
 
 
@@ -206,6 +268,14 @@ def format_run_summary(summary: RunSummary, output_format: str = OutputFormat.RI
     if output_format == OutputFormat.JSON:
         import json
         console.print(summary.model_dump_json(indent=2))
+        return
+
+    if output_format == OutputFormat.JSON_STREAM:
+        _format_run_summary_json_stream(summary)
+        return
+
+    if output_format == OutputFormat.RPC:
+        _format_run_summary_rpc(summary)
         return
 
     if output_format == OutputFormat.PR_COMMENT:
@@ -281,6 +351,60 @@ def _format_run_summary_rich(summary: RunSummary) -> None:
             )
 
         console.print(suite_table)
+
+
+def _format_run_summary_json_stream(summary: RunSummary) -> None:
+    """Format run summary as JSON event stream (Pi Agent style)."""
+    import json
+    event = {
+        "event": "run_complete",
+        "timestamp": summary.finished_at.isoformat(),
+        "run_id": summary.run_id,
+        "evaluation_suite_id": summary.evaluation_suite_id,
+        "evaluation_suite_version": summary.evaluation_suite_version,
+        "total": summary.total,
+        "cases": summary.cases,
+        "repetitions": summary.repetitions,
+        "passed": summary.passed,
+        "failed": summary.failed,
+        "errors": summary.errors,
+        "timeouts": summary.timeouts,
+        "pass_rate": summary.pass_rate,
+        "average_score": summary.average_score,
+        "pass_at_k": summary.pass_at_k,
+        "pass_power_k": summary.pass_power_k,
+        "duration_seconds": (summary.finished_at - summary.started_at).total_seconds(),
+        "artifact_path": summary.artifact_path,
+        "suites": {
+            suite_type.value: {
+                "trials": suite.trials,
+                "passed": suite.passed,
+                "failed": suite.failed,
+                "errors": suite.errors,
+                "pass_rate": suite.pass_rate,
+                "average_score": suite.average_score,
+            }
+            for suite_type, suite in summary.suites.items()
+        },
+    }
+    console.print(json.dumps(event))
+    _flush_console()
+
+
+def _format_run_summary_rpc(summary: RunSummary) -> None:
+    """Format run summary as RPC event (Pi Agent style)."""
+    import json
+    rpc_event = {
+        "jsonrpc": "2.0",
+        "method": "run.complete",
+        "params": {
+            "run_id": summary.run_id,
+            "status": "complete",
+            "summary": summary.model_dump(mode="json"),
+        },
+    }
+    console.print(json.dumps(rpc_event))
+    _flush_console()
 
 
 def _format_run_summary_pr_comment(summary: RunSummary) -> None:

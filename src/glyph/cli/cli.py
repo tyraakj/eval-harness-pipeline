@@ -68,8 +68,8 @@ def main(
 
 
 def _validate_output_format(output_format: str) -> None:
-    if output_format not in {OutputFormat.RICH, OutputFormat.JSON, OutputFormat.PR_COMMENT}:
-        raise typer.BadParameter("format must be rich, json, or pr-comment")
+    if output_format not in {OutputFormat.RICH, OutputFormat.JSON, OutputFormat.JSON_STREAM, OutputFormat.RPC, OutputFormat.PR_COMMENT}:
+        raise typer.BadParameter("format must be rich, json, json-stream, rpc, or pr-comment")
 
 
 def _load_factory(reference: str) -> Callable[[], EvaluationDefinition]:
@@ -113,7 +113,7 @@ def run(
     run_id: Annotated[str | None, typer.Option()] = None,
     overwrite: Annotated[bool, typer.Option(help="Replace an existing artifact file")] = False,
     output_format: Annotated[
-        str, typer.Option("--format", help="rich, json, or pr-comment")
+        str, typer.Option("--format", help="rich, json, json-stream, rpc, or pr-comment")
     ] = OutputFormat.RICH,
     stream: Annotated[
         bool,
@@ -162,8 +162,8 @@ def run(
                     prompt_hashes=definition.prompt_hashes,
                     overwrite_artifact=overwrite,
                     trial_observer=(
-                        print_trial_event
-                        if output_format == OutputFormat.RICH and stream
+                        lambda record: print_trial_event(record, output_format)
+                        if stream
                         else None
                     ),
                     trial_started_observer=(
@@ -192,7 +192,7 @@ def compare_command(
     max_regressions: Annotated[int, typer.Option(min=0)] = 0,
     minimum_delta: Annotated[float, typer.Option(min=-1.0, max=1.0)] = 0.0,
     output_format: Annotated[
-        str, typer.Option("--format", help="rich, json, or pr-comment")
+        str, typer.Option("--format", help="rich, json, json-stream, rpc, or pr-comment")
     ] = OutputFormat.RICH,
 ) -> None:
     """Compare candidate and baseline artifacts by stable case ID."""
@@ -221,7 +221,7 @@ def release_command(
     maximum_regressions: Annotated[int, typer.Option(min=0)] = 0,
     minimum_pass_rate_delta: Annotated[float, typer.Option(min=-1.0, max=1.0)] = 0.0,
     output_format: Annotated[
-        str, typer.Option("--format", help="rich, json, or pr-comment")
+        str, typer.Option("--format", help="rich, json, json-stream, rpc, or pr-comment")
     ] = OutputFormat.RICH,
 ) -> None:
     """Evaluate whether a release should be allowed based on evaluation results."""

@@ -31,8 +31,14 @@ class JsonlArtifactWriter:
 
     def _initialize_sync(self) -> None:
         mode = "w" if self.overwrite else "x"
-        with self.path.open(mode, encoding="utf-8", newline="\n"):
-            pass
+        try:
+            with self.path.open(mode, encoding="utf-8", newline="\n"):
+                pass
+        except FileExistsError:
+            raise FileExistsError(
+                f"Artifact file already exists: {self.path}\n"
+                f"Use --overwrite to replace it, or specify a different --output path."
+            )
 
     def _append_sync(self, payload: str) -> None:
         with self.path.open("a", encoding="utf-8", newline="\n") as handle:

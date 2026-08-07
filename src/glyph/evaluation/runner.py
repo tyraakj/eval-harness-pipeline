@@ -31,6 +31,7 @@ from glyph.core.models import (
     TrialStatus,
 )
 from glyph.exporters.exporting import ExportDispatcher
+from glyph.monitoring.pipeline_tracer import PipelineTracer, PipelineStage
 from glyph.monitoring.telemetry import EvaluationTelemetry
 from glyph.security.contracts import (
     EvaluationExporter,
@@ -127,6 +128,9 @@ class EvaluationRunner:
         self.code_revision = code_revision or environment_revision or "unknown"
         self.trial_observer = trial_observer
         self.trial_started_observer = trial_started_observer
+        # Initialize pipeline tracer for internal workflow tracing
+        trace_output_path = artifact_path.parent / "traces" if artifact_path.parent.exists() else None
+        self.pipeline_tracer = PipelineTracer(output_path=trace_output_path)
 
     async def run(self, cases: Sequence[EvalCase], *, run_id: str | None = None) -> RunSummary:
         if not cases:
@@ -149,123 +153,141 @@ class EvaluationRunner:
 
         active_run_id = run_id or f"run-{uuid4()}"
         started_at = datetime.now(UTC)
-        await self.writer.initialize()
-        semaphore = asyncio.Semaphore(self.budget.max_concurrency)
-        self._judge_cost_usd = 0.0
-        self._judge_cost_lock = asyncio.Lock()
-        dispatcher = ExportDispatcher(
-            self.exporters, self.export_policy, telemetry=self.telemetry
-        )
-        await dispatcher.start()
-        dataset_hash = content_hash(
-            canonical_json([case.model_dump(mode="json") for case in cases])
-        )
+        
+        # Start internal pipeline tracing
+        async with self.pipeline_tracer.trace_run(
+            active_run_id,
+            metadata={
+                "target_version": self.target.version,
+                "suite_id": self.suite.id,
+                "suite_version": self.suite.version,
+                "cases_count": len(cases),
+                "repetitions": self.repetitions,
+                "sandbox_provider": self.sandbox_provider.name,
+                "test": "test"
+            }
+        ):
+            async with self.pipeline_tracer.span(PipelineStage.DATASET_LOAD):
+                dataset_hash = content_hash(
+                    canonical_json([case.model_dump(mode="json") for case in cases])
+                )
+            
+            await self.writer.initialize()
+            semaphore = asyncio.Semaphore(self.budget.max_concurrency)
+            self._judge_cost_usd = 0.0
+            self._judge_cost_lock = asyncio.Lock()
+            dispatcher = ExportDispatcher(
+                self.exporters, self.export_policy, telemetry=self.telemetry
+            )
+            await dispatcher.start()
 
-        async def bounded(case: EvalCase, repetition_index: int) -> TrialRecord:
-            async with semaphore:
-                await self._notify_trial_started(case, repetition_index)
+            async def bounded(case: EvalCase, repetition_index: int) -> TrialRecord:
+                async with semaphore:
+                    await self._notify_trial_started(case, repetition_index)
+                    self.pipeline_tracer.record_case_start(case, repetition_index)
+                    with self.telemetry.span(
+                        "evaluation.trial",
+                        {
+                            "evaluation.run.id": active_run_id,
+                            "evaluation.case.id": case.id,
+                            "evaluation.trial.repetition": repetition_index,
+                            "evaluation.suite": case.suite.value,
+                        },
+                    ):
+                        record = await self._run_trial(
+                            active_run_id, case, dataset_hash, repetition_index
+                        )
+                        self.telemetry.record_trial(record, target_version=self.target.version)
+                        self.pipeline_tracer.record_case_complete(record)
+                    await self.writer.append(
+                        record, max_record_bytes=self.budget.max_trial_artifact_bytes
+                    )
+                    await self._notify_trial(record)
+                    await dispatcher.submit_trial(case, record)
+                    return record
+
+            try:
                 with self.telemetry.span(
-                    "evaluation.trial",
+                    "evaluation.run",
                     {
                         "evaluation.run.id": active_run_id,
-                        "evaluation.case.id": case.id,
-                        "evaluation.trial.repetition": repetition_index,
-                        "evaluation.suite": case.suite.value,
+                        "evaluation.case.count": len(cases),
+                        "evaluation.repetitions": self.repetitions,
                     },
                 ):
-                    record = await self._run_trial(
-                        active_run_id, case, dataset_hash, repetition_index
+                    records = await asyncio.gather(
+                        *(
+                            bounded(case, repetition_index)
+                            for case in cases
+                            for repetition_index in range(self.repetitions)
+                        )
                     )
-                    self.telemetry.record_trial(record, target_version=self.target.version)
-                await self.writer.append(
-                    record, max_record_bytes=self.budget.max_trial_artifact_bytes
+            except BaseException:
+                await self._close_dispatcher(dispatcher)
+                raise
+            passed = sum(record.status == TrialStatus.PASSED for record in records)
+            failed = sum(record.status == TrialStatus.FAILED for record in records)
+            errors = sum(
+                record.status in {TrialStatus.ERROR, TrialStatus.BUDGET_EXCEEDED}
+                for record in records
+            )
+            timeouts = sum(record.status == TrialStatus.TIMEOUT for record in records)
+            case_records = {
+                case.id: [record for record in records if record.case_id == case.id]
+                for case in cases
+            }
+            judge_cost_usd = sum(
+                grade.cost_usd for record in records for grade in record.grades
+            )
+            suite_summaries = {}
+            for suite in {case.suite for case in cases}:
+                suite_records = [record for record in records if record.suite == suite]
+                suite_passed = sum(record.status == TrialStatus.PASSED for record in suite_records)
+                suite_failed = sum(record.status == TrialStatus.FAILED for record in suite_records)
+                suite_errors = len(suite_records) - suite_passed - suite_failed
+                suite_summaries[suite] = SuiteSummary(
+                    trials=len(suite_records),
+                    passed=suite_passed,
+                    failed=suite_failed,
+                    errors=suite_errors,
+                    pass_rate=suite_passed / len(suite_records),
+                    average_score=sum(record.score for record in suite_records) / len(suite_records),
                 )
-                await self._notify_trial(record)
-                await dispatcher.submit_trial(case, record)
-                return record
-
-        try:
-            with self.telemetry.span(
-                "evaluation.run",
-                {
-                    "evaluation.run.id": active_run_id,
-                    "evaluation.case.count": len(cases),
-                    "evaluation.repetitions": self.repetitions,
-                },
-            ):
-                records = await asyncio.gather(
-                    *(
-                        bounded(case, repetition_index)
-                        for case in cases
-                        for repetition_index in range(self.repetitions)
-                    )
+            await dispatcher.drain()
+            summary = RunSummary(
+                run_id=active_run_id,
+                evaluation_suite_id=self.suite.id,
+                evaluation_suite_version=self.suite.version,
+                started_at=started_at,
+                total=len(records),
+                cases=len(cases),
+                repetitions=self.repetitions,
+                passed=passed,
+                failed=failed,
+                errors=errors,
+                timeouts=timeouts,
+                pass_rate=passed / len(records),
+                average_score=sum(record.score for record in records) / len(records),
+                pass_at_k=sum(
+                    any(record.status == TrialStatus.PASSED for record in grouped)
+                    for grouped in case_records.values()
                 )
-        except BaseException:
-            await self._close_dispatcher(dispatcher)
-            raise
-        passed = sum(record.status == TrialStatus.PASSED for record in records)
-        failed = sum(record.status == TrialStatus.FAILED for record in records)
-        errors = sum(
-            record.status in {TrialStatus.ERROR, TrialStatus.BUDGET_EXCEEDED}
-            for record in records
-        )
-        timeouts = sum(record.status == TrialStatus.TIMEOUT for record in records)
-        case_records = {
-            case.id: [record for record in records if record.case_id == case.id]
-            for case in cases
-        }
-        judge_cost_usd = sum(
-            grade.cost_usd for record in records for grade in record.grades
-        )
-        suite_summaries = {}
-        for suite in {case.suite for case in cases}:
-            suite_records = [record for record in records if record.suite == suite]
-            suite_passed = sum(record.status == TrialStatus.PASSED for record in suite_records)
-            suite_failed = sum(record.status == TrialStatus.FAILED for record in suite_records)
-            suite_errors = len(suite_records) - suite_passed - suite_failed
-            suite_summaries[suite] = SuiteSummary(
-                trials=len(suite_records),
-                passed=suite_passed,
-                failed=suite_failed,
-                errors=suite_errors,
-                pass_rate=suite_passed / len(suite_records),
-                average_score=sum(record.score for record in suite_records) / len(suite_records),
+                / len(cases),
+                pass_power_k=sum(
+                    all(record.status == TrialStatus.PASSED for record in grouped)
+                    for grouped in case_records.values()
+                )
+                / len(cases),
+                judge_cost_usd=judge_cost_usd,
+                suites=suite_summaries,
+                export_errors=tuple(dispatcher.errors),
+                artifact_path=str(self.writer.path.resolve()),
             )
-        await dispatcher.drain()
-        summary = RunSummary(
-            run_id=active_run_id,
-            evaluation_suite_id=self.suite.id,
-            evaluation_suite_version=self.suite.version,
-            started_at=started_at,
-            total=len(records),
-            cases=len(cases),
-            repetitions=self.repetitions,
-            passed=passed,
-            failed=failed,
-            errors=errors,
-            timeouts=timeouts,
-            pass_rate=passed / len(records),
-            average_score=sum(record.score for record in records) / len(records),
-            pass_at_k=sum(
-                any(record.status == TrialStatus.PASSED for record in grouped)
-                for grouped in case_records.values()
-            )
-            / len(cases),
-            pass_power_k=sum(
-                all(record.status == TrialStatus.PASSED for record in grouped)
-                for grouped in case_records.values()
-            )
-            / len(cases),
-            judge_cost_usd=judge_cost_usd,
-            suites=suite_summaries,
-            export_errors=tuple(dispatcher.errors),
-            artifact_path=str(self.writer.path.resolve()),
-        )
-        await dispatcher.submit_summary(summary)
-        await dispatcher.close()
-        summary = summary.model_copy(update={"export_errors": tuple(dispatcher.errors)})
-        await self.writer.append(summary)
-        return summary
+            await dispatcher.submit_summary(summary)
+            await dispatcher.close()
+            summary = summary.model_copy(update={"export_errors": tuple(dispatcher.errors)})
+            await self.writer.append(summary)
+            return summary
 
     async def _notify_trial(self, record: TrialRecord) -> None:
         """Notify optional UI observers after durable local persistence.
@@ -347,32 +369,36 @@ class EvaluationRunner:
 
         try:
             async with asyncio.timeout(self.budget.timeout_seconds):
-                sandbox = await self.sandbox_provider.provision(case, context)
+                async with self.pipeline_tracer.span(PipelineStage.SANDBOX_PROVISION):
+                    sandbox = await self.sandbox_provider.provision(case, context)
                 if sandbox.provider != self.sandbox_provider.name:
                     raise ValueError("Sandbox provider returned mismatched identity")
                 context = replace(context, sandbox=sandbox)
-                with self.telemetry.operation(
-                    "evaluation.target",
-                    metric_prefix="evaluation.target",
-                    span_attributes={
-                        "evaluation.trial.id": trial_id,
-                        "evaluation.target.version": self.target.version,
-                    },
-                    metric_attributes={
-                        "evaluation.suite": case.suite.value,
-                        "evaluation.target.version": self.target.version,
-                    },
-                ):
-                    result = await self.target.execute(case, context)
-                result = await self._collect_outcomes(case, result, context)
-                grades = tuple(
-                    await asyncio.gather(
-                        *(
-                            self._grade(grader, case, result, trial_id)
-                            for grader in selected_graders
+                async with self.pipeline_tracer.span(PipelineStage.TARGET_EXECUTE):
+                    with self.telemetry.operation(
+                        "evaluation.target",
+                        metric_prefix="evaluation.target",
+                        span_attributes={
+                            "evaluation.trial.id": trial_id,
+                            "evaluation.target.version": self.target.version,
+                        },
+                        metric_attributes={
+                            "evaluation.suite": case.suite.value,
+                            "evaluation.target.version": self.target.version,
+                        },
+                    ):
+                        result = await self.target.execute(case, context)
+                async with self.pipeline_tracer.span(PipelineStage.OUTCOME_COLLECT):
+                    result = await self._collect_outcomes(case, result, context)
+                async with self.pipeline_tracer.span(PipelineStage.GRADING):
+                    grades = tuple(
+                        await asyncio.gather(
+                            *(
+                                self._grade(grader, case, result, trial_id)
+                                for grader in selected_graders
+                            )
                         )
                     )
-                )
                 score = self._weighted_score(grades)
                 required_passed = all(
                     grade.passed
@@ -397,44 +423,45 @@ class EvaluationRunner:
             error_type = type(error).__name__
             error_message = sanitize_text(str(error))[:2_000]
         finally:
-            if sandbox is not None:
-                try:
-                    await self._destroy_sandbox(sandbox)
-                    sandbox_cleanup = SandboxCleanup(attempted=True, succeeded=True)
-                except Exception as cleanup_error:
-                    status = TrialStatus.ERROR
-                    error_type = "SandboxCleanupError"
-                    error_message = sanitize_text(str(cleanup_error))[:2_000]
-                    sandbox_cleanup = SandboxCleanup(
-                        attempted=True,
-                        succeeded=False,
-                        error_type=type(cleanup_error).__name__,
-                        error_message=error_message,
-                    )
+            async with self.pipeline_tracer.span(PipelineStage.SANDBOX_DESTROY):
+                sandbox_cleanup = await self._cleanup_sandbox(sandbox, sandbox_cleanup)
+            duration_ms = int((time.monotonic() - monotonic_start) * 1000)
+            input_hash = content_hash(canonical_json(case.input))
+            return TrialRecord(
+                trial_id=trial_id,
+                run_id=run_id,
+                case_id=case.id,
+                repetition_index=repetition_index,
+                suite=case.suite,
+                status=status,
+                error_type=error_type,
+                error_message=error_message,
+                started_at=started_at,
+                duration_ms=duration_ms,
+                score=score,
+                grades=grades,
+                sandbox=sandbox,
+                sandbox_cleanup=sandbox_cleanup,
+                provenance=provenance,
+                tracked_metrics=tracked_metrics,
+                input_hash=input_hash,
+            )
 
-        duration_ms = max(0, int((time.monotonic() - monotonic_start) * 1000))
-        record = TrialRecord(
-            run_id=run_id,
-            trial_id=trial_id,
-            case_id=case.id,
-            repetition_index=repetition_index,
-            suite=case.suite,
-            started_at=started_at,
-            duration_ms=duration_ms,
-            status=status,
-            input_hash=content_hash(canonical_json(case.input)),
-            result=result,
-            grades=grades,
-            tracked_metrics=tracked_metrics,
-            metrics=self._metric_values(result, duration_ms, tracked_metrics),
-            score=score,
-            error_type=error_type,
-            error_message=error_message,
-            sandbox=sandbox,
-            sandbox_cleanup=sandbox_cleanup,
-            provenance=provenance,
-        )
-        return self._bound_trial_record(record)
+    async def _cleanup_sandbox(
+        self, sandbox: SandboxSession | None, cleanup: SandboxCleanup
+    ) -> SandboxCleanup:
+        if sandbox is None:
+            return cleanup
+        try:
+            await self._destroy_sandbox(sandbox)
+            return SandboxCleanup(attempted=True, succeeded=True)
+        except Exception as error:
+            return SandboxCleanup(
+                attempted=True,
+                succeeded=False,
+                error_type=type(error).__name__,
+                error_message=str(error),
+            )
 
     def _bound_trial_record(self, record: TrialRecord) -> TrialRecord:
         artifact_bytes = len(record.model_dump_json(exclude_none=True).encode("utf-8"))
