@@ -4,7 +4,7 @@ from typing import Protocol
 
 from pydantic import JsonValue
 
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     Grade,
     OutcomeObservation,
@@ -14,7 +14,7 @@ from glyph.core.models import (
     TrialRecord,
 )
 
-from glyph.security.sandbox import RunContext
+from glyph.security.live_sandbox import RunContext
 
 
 class SandboxProvider(Protocol):

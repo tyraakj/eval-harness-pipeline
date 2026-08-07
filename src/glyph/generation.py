@@ -20,9 +20,9 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from glyph.core.models import EvalCase, SuiteType
+from glyph.core.domain_models import EvalCase, SuiteType
 from glyph.utils.datasets import load_jsonl
-from glyph.utils.utils import canonical_json, sanitize
+from glyph.utils.common import canonical_json, sanitize
 
 
 class FrozenModel(BaseModel):
@@ -422,7 +422,7 @@ def promote_draft(
         error_parts.append(f"Cannot promote draft: {reviewed_cases}/{total_cases} cases reviewed")
         error_parts.append("Issues:")
         for problem in problems:
-            error_parts.append(f"  • {problem}")
+            error_parts.append(f"  â€¢ {problem}")
         
         # Add helpful guidance
         error_parts.append("To fix this:")

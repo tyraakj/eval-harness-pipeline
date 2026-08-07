@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from glyph.grading.graders import ExactMatchGrader
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     OnlineEvaluationPolicy,
     OnlineEvaluationStatus,

@@ -5,7 +5,7 @@ executions with domain-specific expertise. Workers can analyze tool calls, metad
 intermediate steps, and LangGraph node/edge executions.
 
 Example:
-    from glyph.workers import WorkerCoordinator, WorkerRegistry
+    from glyph.agent_runtime import WorkerCoordinator, WorkerRegistry
     
     # Create registry and register default workers
     registry = WorkerRegistry()
@@ -26,13 +26,13 @@ Example:
     result = await coordinator.submit_task(task)
 """
 
-from glyph.workers.coordinator import WorkerCoordinator
-from glyph.workers.langgraph_integration import (
+from glyph.agent_runtime.coordinator import WorkerCoordinator
+from glyph.agent_runtime.langgraph_integration import (
     LangGraphExecution,
     LangGraphTracer,
     LangGraphWorkerAdapter,
 )
-from glyph.workers.models import (
+from glyph.agent_runtime.worker_models import (
     NodeAnalysisCriteria,
     ToolExpertise,
     WorkerCapability,
@@ -42,7 +42,7 @@ from glyph.workers.models import (
     WorkerRouting,
     WorkerTask,
 )
-from glyph.workers.registry import WorkerDefinition, WorkerRegistry
+from glyph.agent_runtime.registry import WorkerDefinition, WorkerRegistry
 
 __all__ = [
     # Core models

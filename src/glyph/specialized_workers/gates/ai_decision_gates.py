@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     Severity,
     WorkerResult,
     WorkerType,

@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
     EvaluationEvidence,
@@ -16,7 +16,7 @@ from glyph.evaluation.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.evaluation.specialized_workers.artifact import EvaluationArtifact
+from glyph.specialized_workers.artifact import EvaluationArtifact
 
 
 @dataclass
@@ -203,7 +203,7 @@ class PerformanceEvaluator(BaseSpecializedWorker):
     
     def _estimate_memory_usage(self, evidence: EvaluationEvidence) -> float:
         """Estimate memory usage based on tokens and context."""
-        # Rough estimation: 1 token ≈ 4 bytes, plus overhead
+        # Rough estimation: 1 token â‰ˆ 4 bytes, plus overhead
         total_tokens = (
             evidence.token_usage.get("input_tokens", 0) +
             evidence.token_usage.get("output_tokens", 0)

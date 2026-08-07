@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from glyph.schemas.graders import GraderListResponse
+from glyph.schemas.grader_schemas import GraderListResponse
 from glyph.services.grader_service import GraderService
 
 router = APIRouter()

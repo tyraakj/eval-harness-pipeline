@@ -6,8 +6,8 @@ import asyncio
 from collections.abc import Callable
 from typing import Any
 
-from glyph.workers.ai_analysis import AIAnalyzer, AIAnalysisRequest, HybridAIAnalyzer, NoOpAIAnalyzer
-from glyph.workers.models import (
+from glyph.agent_runtime.ai_analysis import AIAnalyzer, AIAnalysisRequest, HybridAIAnalyzer, NoOpAIAnalyzer
+from glyph.agent_runtime.worker_models import (
     ToolExpertise,
     WorkerDomain,
     WorkerExpertise,

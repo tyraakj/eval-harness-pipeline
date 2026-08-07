@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from glyph.core.models import EvalCase, TargetResult
+from glyph.core.domain_models import EvalCase, TargetResult
 from glyph.security.contracts import Target
-from glyph.security.sandbox import RunContext
+from glyph.security.live_sandbox import RunContext
 
 
 def create_openai_target(

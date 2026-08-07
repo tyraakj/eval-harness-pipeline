@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from glyph.grading.comparison import Comparison, compare
-from glyph.core.models import (
+from glyph.core.domain_models import (
     ReleaseDecision,
     ReleasePolicy,
     RunSummary,

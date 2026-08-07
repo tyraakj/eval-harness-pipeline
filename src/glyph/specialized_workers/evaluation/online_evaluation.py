@@ -5,14 +5,14 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 
 from glyph.security.contracts import Grader, OnlineCostLedger
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     OnlineEvaluationDecision,
     OnlineEvaluationPolicy,
     OnlineEvaluationStatus,
     TargetResult,
 )
-from glyph.utils.utils import sanitize, sanitize_text
+from glyph.utils.common import sanitize, sanitize_text
 
 
 class InMemoryOnlineCostLedger:

@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from glyph.core.models import EvalCase, SuiteType
+from glyph.core.domain_models import EvalCase, SuiteType
 from glyph.generation import (
     CaseReview,
     GenerationSpec,

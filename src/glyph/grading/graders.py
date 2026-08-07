@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from pydantic import JsonValue
 
-from glyph.core.models import EvalCase, Grade, RetrievalExpectation, TargetResult
+from glyph.core.domain_models import EvalCase, Grade, RetrievalExpectation, TargetResult
 
 
 def _path(value: Any, dotted_path: str) -> Any:

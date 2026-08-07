@@ -9,8 +9,8 @@ from celery import Celery
 from sqlalchemy import update
 
 from glyph.cli.cli import _load_factory
-from glyph.core.models import RunSummary
-from glyph.db.models import Run
+from glyph.core.domain_models import RunSummary
+from glyph.db.orm_models import Run
 from glyph.db.session import get_session
 from glyph.evaluation.definition import EvaluationDefinition
 from glyph.evaluation.runner import EvaluationRunner

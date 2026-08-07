@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from glyph.core.models import TrialRecord
+from glyph.core.domain_models import TrialRecord
 
 
 @dataclass(frozen=True, slots=True)

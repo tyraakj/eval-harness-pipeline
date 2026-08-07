@@ -9,7 +9,7 @@ from typing import Any, Protocol, cast
 
 from pydantic import Field, JsonValue
 
-from glyph.core.models import EvalCase, FrozenModel
+from glyph.core.domain_models import EvalCase, FrozenModel
 from glyph.utils import canonical_json, content_hash, sanitize
 
 

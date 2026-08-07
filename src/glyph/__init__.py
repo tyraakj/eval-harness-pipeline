@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvalCase,
     EvaluationSuite,
@@ -54,7 +54,7 @@ try:
         OptimizationResult,
         Optimizer,
     )
-    from glyph.evaluation.release_gate import ReleaseGate
+    from glyph.specialized_workers.gates.release_gate import ReleaseGate
     _HUMAN_AVAILABLE = True
 except ImportError:
     _HUMAN_AVAILABLE = False

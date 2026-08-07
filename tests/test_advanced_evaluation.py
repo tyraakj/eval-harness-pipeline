@@ -17,7 +17,7 @@ from glyph.grading.graders import (
     RerankingLatencyGrader,
     TrajectorySubsequenceGrader,
 )
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvalCase,
     Grade,

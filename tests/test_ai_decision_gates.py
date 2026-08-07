@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from datetime import UTC, datetime
-from glyph.evaluation.specialized_workers.ai_decision_gates import (
+from glyph.specialized_workers.gates.ai_decision_gates import (
     AIJudgeGateChain,
     AIJudgeInvocationConfig,
     AIJudgeResult,
@@ -21,20 +21,20 @@ from glyph.evaluation.specialized_workers.ai_decision_gates import (
     PreInvocationGate,
     QualityControlGate,
 )
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     WorkerResult,
     WorkerType,
     GraderMode,
     Severity,
 )
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
     ModelManifest,
     UsageMetrics,
 )
-from glyph.evaluation.specialized_workers.grader_router import RoutingCriteria
+from glyph.specialized_workers.grader_router import RoutingCriteria
 
 
 def test_pre_invocation_gate_proceed():

@@ -11,7 +11,7 @@ from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableConfig
 
 from glyph.security.contracts import RunContext
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     LoopIteration,
     LoopObservation,

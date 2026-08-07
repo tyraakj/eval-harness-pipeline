@@ -7,7 +7,7 @@ listing available grader types.
 from __future__ import annotations
 
 from glyph.core.config import list_available_graders
-from glyph.schemas.graders import GraderListResponse
+from glyph.schemas.grader_schemas import GraderListResponse
 
 
 class GraderService:

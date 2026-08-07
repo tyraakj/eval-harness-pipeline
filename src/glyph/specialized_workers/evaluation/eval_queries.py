@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from glyph.db.models import Run, Trial
+from glyph.db.orm_models import Run, Trial
 from glyph.db.session import get_session
 
 

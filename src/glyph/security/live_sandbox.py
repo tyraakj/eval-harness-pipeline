@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from glyph.core.models import Budget, EvalCase, SandboxSession
+from glyph.core.domain_models import Budget, EvalCase, SandboxSession
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from glyph.core.models import EvalCase, SuiteType
+from glyph.core.domain_models import EvalCase, SuiteType
 from glyph.security.offline_sandbox import (
     CompositeSandboxProvider,
     FilesystemSandboxConfig,
@@ -14,7 +14,7 @@ from glyph.security.offline_sandbox import (
     NetworkSandboxConfig,
     NetworkSandboxProvider,
 )
-from glyph.security.sandbox import RunContext
+from glyph.security.live_sandbox import RunContext
 
 
 @pytest.mark.asyncio

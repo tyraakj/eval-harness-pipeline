@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from glyph.core.models import EvalCase
+from glyph.core.domain_models import EvalCase
 
 
 @dataclass

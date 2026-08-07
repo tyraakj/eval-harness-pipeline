@@ -9,27 +9,27 @@ from typing import Any
 from celery import current_task
 from pydantic import ValidationError
 
-from glyph.evaluation.specialized_workers.celery_config import celery_app
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.infra.celery_config import celery_app
+from glyph.specialized_workers.base import (
     EvaluationEvidence,
     WorkerResult,
     WorkerType,
 )
-from glyph.evaluation.specialized_workers.artifact import EvaluationArtifact
-from glyph.evaluation.specialized_workers.tool_evaluator import ToolEvaluator
-from glyph.evaluation.specialized_workers.retrieval_evaluator import RetrievalEvaluator
-from glyph.evaluation.specialized_workers.graph_evaluator import GraphEvaluator
-from glyph.evaluation.specialized_workers.output_evaluator import OutputEvaluator
-from glyph.evaluation.specialized_workers.security_evaluator import SecurityEvaluator
-from glyph.evaluation.specialized_workers.performance_evaluator import PerformanceEvaluator
-from glyph.evaluation.specialized_workers.orchestrator import EvaluationOrchestrator, OrchestratorConfig
-from glyph.evaluation.specialized_workers.aggregator import ResultAggregator, AggregationPolicy
+from glyph.specialized_workers.artifact import EvaluationArtifact
+from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
+from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
+from glyph.specialized_workers.evaluators.graph_evaluator import GraphEvaluator
+from glyph.specialized_workers.evaluators.output_evaluator import OutputEvaluator
+from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
+from glyph.specialized_workers.evaluators.performance_evaluator import PerformanceEvaluator
+from glyph.specialized_workers.orchestrator import EvaluationOrchestrator, OrchestratorConfig
+from glyph.specialized_workers.aggregator import ResultAggregator, AggregationPolicy
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.orchestrate_evaluation",
+    name="glyph.specialized_workers.tasks.orchestrate_evaluation",
     bind=True,
     max_retries=3,
     default_retry_delay=60,
@@ -79,7 +79,7 @@ def orchestrate_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.tool_evaluation",
+    name="glyph.specialized_workers.tasks.tool_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -93,7 +93,7 @@ def tool_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.tool_evaluator import ToolPolicy
+        from glyph.specialized_workers.evaluators.tool_evaluator import ToolPolicy
         policy = ToolPolicy(**policy_dict) if policy_dict else ToolPolicy()
         
         evaluator = ToolEvaluator(policy=policy)
@@ -110,7 +110,7 @@ def tool_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.retrieval_evaluation",
+    name="glyph.specialized_workers.tasks.retrieval_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -124,7 +124,7 @@ def retrieval_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.retrieval_evaluator import RetrievalPolicy
+        from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalPolicy
         policy = RetrievalPolicy(**policy_dict) if policy_dict else RetrievalPolicy()
         
         evaluator = RetrievalEvaluator(policy=policy)
@@ -141,7 +141,7 @@ def retrieval_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.graph_evaluation",
+    name="glyph.specialized_workers.tasks.graph_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -155,7 +155,7 @@ def graph_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.graph_evaluator import GraphPolicy
+        from glyph.specialized_workers.evaluators.graph_evaluator import GraphPolicy
         policy = GraphPolicy(**policy_dict) if policy_dict else GraphPolicy()
         
         evaluator = GraphEvaluator(policy=policy)
@@ -172,7 +172,7 @@ def graph_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.output_evaluation",
+    name="glyph.specialized_workers.tasks.output_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -186,7 +186,7 @@ def output_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.output_evaluator import OutputPolicy
+        from glyph.specialized_workers.evaluators.output_evaluator import OutputPolicy
         policy = OutputPolicy(**policy_dict) if policy_dict else OutputPolicy()
         
         evaluator = OutputEvaluator(policy=policy)
@@ -203,7 +203,7 @@ def output_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.security_evaluation",
+    name="glyph.specialized_workers.tasks.security_evaluation",
     bind=True,
     max_retries=1,  # Security failures should not be retried often
     default_retry_delay=30,
@@ -217,7 +217,7 @@ def security_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.security_evaluator import SecurityPolicy
+        from glyph.specialized_workers.evaluators.security_evaluator import SecurityPolicy
         policy = SecurityPolicy(**policy_dict) if policy_dict else SecurityPolicy()
         
         evaluator = SecurityEvaluator(policy=policy)
@@ -234,7 +234,7 @@ def security_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.performance_evaluation",
+    name="glyph.specialized_workers.tasks.performance_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -248,7 +248,7 @@ def performance_evaluation(
     try:
         evidence = EvaluationEvidence(**evidence_dict)
         
-        from glyph.evaluation.specialized_workers.performance_evaluator import PerformancePolicy
+        from glyph.specialized_workers.evaluators.performance_evaluator import PerformancePolicy
         policy = PerformancePolicy(**policy_dict) if policy_dict else PerformancePolicy()
         
         evaluator = PerformanceEvaluator(policy=policy)
@@ -265,7 +265,7 @@ def performance_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.semantic_evaluation",
+    name="glyph.specialized_workers.tasks.semantic_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=60,
@@ -281,7 +281,7 @@ def semantic_evaluation(
         
         # This would integrate with AI judges for semantic evaluation
         # For now, return a placeholder result
-        from glyph.evaluation.specialized_workers.base import (
+        from glyph.specialized_workers.base import (
             WorkerResult,
             WorkerType,
             GraderMode,
@@ -314,7 +314,7 @@ def semantic_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.aggregate_results",
+    name="glyph.specialized_workers.tasks.aggregate_results",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -371,7 +371,7 @@ def aggregate_results(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.export_results",
+    name="glyph.specialized_workers.tasks.export_results",
     bind=True,
     max_retries=3,
     default_retry_delay=120,
@@ -399,7 +399,7 @@ def export_results(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.replay_evaluation",
+    name="glyph.specialized_workers.tasks.replay_evaluation",
     bind=True,
     max_retries=2,
     default_retry_delay=30,
@@ -420,13 +420,13 @@ def replay_evaluation(
         artifact = EvaluationArtifact(**artifact_dict)
         
         # Extract evidence from artifact
-        from glyph.evaluation.specialized_workers.base import BaseArtifactWorker
+        from glyph.specialized_workers.base import BaseArtifactWorker
         
         # In a full implementation, this would instantiate the appropriate
         # artifact worker and run deterministic graders
         # For now, return a placeholder result indicating replay mode
         
-        from glyph.evaluation.specialized_workers.base import (
+        from glyph.specialized_workers.base import (
             WorkerResult,
             WorkerType,
             GraderMode,
@@ -458,7 +458,7 @@ def replay_evaluation(
 
 
 @celery_app.task(
-    name="glyph.evaluation.specialized_workers.tasks.baseline_comparison",
+    name="glyph.specialized_workers.tasks.baseline_comparison",
     bind=True,
     max_retries=2,
     default_retry_delay=30,

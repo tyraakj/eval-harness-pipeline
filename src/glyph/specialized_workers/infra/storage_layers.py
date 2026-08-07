@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     EvaluationArtifact,
     ReplayBundle,
 )

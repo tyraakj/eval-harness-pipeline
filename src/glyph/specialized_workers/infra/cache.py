@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     EvaluationArtifact,
     ExecutionMode,
 )
@@ -289,8 +289,8 @@ class CacheRouter:
     Routes execution requests based on cache lookup results.
     
     Implements the change-aware testing logic from the architecture:
-    - Cache hit + compatible artifact → replay mode
-    - Cache miss or changed dependency → live execution
+    - Cache hit + compatible artifact â†’ replay mode
+    - Cache miss or changed dependency â†’ live execution
     """
     
     def __init__(self, cache: ContentAddressedCache):
@@ -336,10 +336,10 @@ class CacheRouter:
         
         # Route based on lookup result
         if lookup_result.hit and lookup_result.compatible:
-            # Cache hit with compatible artifact → replay mode
+            # Cache hit with compatible artifact â†’ replay mode
             return ExecutionMode.REPLAY, lookup_result.artifact, lookup_result
         else:
-            # Cache miss or incompatible → live execution
+            # Cache miss or incompatible â†’ live execution
             return ExecutionMode.LIVE, None, lookup_result
     
     def should_reexecute_on_change(

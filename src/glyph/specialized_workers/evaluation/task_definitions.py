@@ -9,7 +9,7 @@ from glyph.security.contracts import (
     SandboxProvider,
     Target,
 )
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvaluationSuite,
     ExportPolicy,

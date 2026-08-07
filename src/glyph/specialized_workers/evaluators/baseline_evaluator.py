@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from glyph.evaluation.specialized_workers.artifact import EvaluationArtifact
+from glyph.specialized_workers.artifact import EvaluationArtifact
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ class BaselineService:
         self._baselines[dataset_version] = baseline
         
         # Store metadata
-        from glyph.evaluation.specialized_workers.storage_layers import RunMetadata
+        from glyph.specialized_workers.infra.storage_interface_layers import RunMetadata
         metadata = RunMetadata(
             run_id=run_id,
             project_id="baseline",
@@ -266,7 +266,7 @@ class CandidateService:
         self._candidates[run_id] = candidate
         
         # Store metadata
-        from glyph.evaluation.specialized_workers.storage_layers import RunMetadata
+        from glyph.specialized_workers.infra.storage_interface_layers import RunMetadata
         metadata = RunMetadata(
             run_id=run_id,
             project_id="candidate",

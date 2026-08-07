@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from glyph.core.models import EvalCase, TrialRecord
+from glyph.core.domain_models import EvalCase, TrialRecord
 
 
 class PipelineStage(StrEnum):

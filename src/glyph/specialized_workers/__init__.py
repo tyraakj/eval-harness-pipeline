@@ -1,12 +1,12 @@
 """Specialized evaluation workers for multi-dimensional agent evaluation."""
 
-from glyph.evaluation.specialized_workers.aggregator import (
+from glyph.specialized_workers.aggregator import (
     AggregationPolicy,
     AggregatedResult,
     ReleaseDecision,
     ResultAggregator,
 )
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
@@ -14,13 +14,13 @@ from glyph.evaluation.specialized_workers.artifact import (
     ReplayBundle,
     UsageMetrics,
 )
-from glyph.evaluation.specialized_workers.cache import (
+from glyph.specialized_workers.infra.cache import (
     CacheEntry,
     CacheLookupResult,
     CacheRouter,
     ContentAddressedCache,
 )
-from glyph.evaluation.specialized_workers.executors import (
+from glyph.specialized_workers.infra.executors import (
     ExecutionContext,
     ExecutionResult,
     ExecutorFactory,
@@ -28,7 +28,7 @@ from glyph.evaluation.specialized_workers.executors import (
     ReplayExecutor,
     RunOrchestrator,
 )
-from glyph.evaluation.specialized_workers.storage_layers import (
+from glyph.specialized_workers.infra.storage_interface_layers import (
     InMemoryObjectStorage,
     InMemoryPostgreSQLStorage,
     InMemoryRedisStorage,
@@ -39,7 +39,7 @@ from glyph.evaluation.specialized_workers.storage_layers import (
     RunMetadata,
     StorageManager,
 )
-from glyph.evaluation.specialized_workers.baseline import (
+from glyph.specialized_workers.evaluators.baseline_evaluator import (
     BaselineComparison,
     BaselineComparator,
     BaselineRun,
@@ -49,14 +49,14 @@ from glyph.evaluation.specialized_workers.baseline import (
     ComparisonResult,
     TrialComparison,
 )
-from glyph.evaluation.specialized_workers.grader_router import (
+from glyph.specialized_workers.grader_router import (
     GraderRouter,
     RoutingCriteria,
     RoutingDecision,
     RoutingResult,
     SelectiveEvaluationPipeline,
 )
-from glyph.evaluation.specialized_workers.ai_decision_gates import (
+from glyph.specialized_workers.gates.ai_decision_gates import (
     AIJudgeGateChain,
     AIJudgeInvocationConfig,
     AIJudgeResult,
@@ -70,7 +70,7 @@ from glyph.evaluation.specialized_workers.ai_decision_gates import (
     PreInvocationGate,
     QualityControlGate,
 )
-from glyph.evaluation.specialized_workers.dataset_service import (
+from glyph.specialized_workers.worker_dataset_service import (
     Case,
     DatasetGenerator,
     DatasetService,
@@ -79,7 +79,7 @@ from glyph.evaluation.specialized_workers.dataset_service import (
     GenerationConfig,
     GenerationMode,
 )
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
     EvaluationEvidence,
@@ -88,38 +88,38 @@ from glyph.evaluation.specialized_workers.base import (
     GraderMode,
     Severity,
 )
-from glyph.evaluation.specialized_workers.graph_evaluator import (
+from glyph.specialized_workers.evaluators.graph_evaluator import (
     ArtifactGraphEvaluator,
     GraphEvaluator,
 )
-from glyph.evaluation.specialized_workers.orchestrator import (
+from glyph.specialized_workers.orchestrator import (
     EvaluationOrchestrator,
     OrchestratedResult,
     OrchestratorConfig,
 )
-from glyph.evaluation.specialized_workers.output_evaluator import (
+from glyph.specialized_workers.evaluators.output_evaluator import (
     ArtifactOutputEvaluator,
     OutputEvaluator,
 )
-from glyph.evaluation.specialized_workers.performance_evaluator import (
+from glyph.specialized_workers.evaluators.performance_evaluator import (
     ArtifactPerformanceEvaluator,
     PerformanceEvaluator,
 )
-from glyph.evaluation.specialized_workers.retrieval_evaluator import (
+from glyph.specialized_workers.evaluators.retrieval_evaluator import (
     ArtifactRetrievalEvaluator,
     RetrievalEvaluator,
 )
-from glyph.evaluation.specialized_workers.security_evaluator import (
+from glyph.specialized_workers.evaluators.security_evaluator import (
     ArtifactSecurityEvaluator,
     SecurityEvaluator,
 )
-from glyph.evaluation.specialized_workers.storage import (
+from glyph.specialized_workers.infra.storage_interface import (
     EvaluationAttempt,
     WorkerResultStorage,
     get_storage,
     reset_storage,
 )
-from glyph.evaluation.specialized_workers.tool_evaluator import (
+from glyph.specialized_workers.evaluators.tool_evaluator import (
     ArtifactToolEvaluator,
     ToolEvaluator,
 )

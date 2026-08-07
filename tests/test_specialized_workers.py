@@ -3,46 +3,46 @@
 import pytest
 from datetime import UTC, datetime
 
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     EvaluationEvidence,
     WorkerType,
     GraderMode,
     Severity,
 )
-from glyph.evaluation.specialized_workers.tool_evaluator import (
+from glyph.specialized_workers.evaluators.tool_evaluator import (
     ToolEvaluator,
     ToolPolicy,
 )
-from glyph.evaluation.specialized_workers.retrieval_evaluator import (
+from glyph.specialized_workers.evaluators.retrieval_evaluator import (
     RetrievalEvaluator,
     RetrievalPolicy,
 )
-from glyph.evaluation.specialized_workers.graph_evaluator import (
+from glyph.specialized_workers.evaluators.graph_evaluator import (
     GraphEvaluator,
     GraphPolicy,
 )
-from glyph.evaluation.specialized_workers.output_evaluator import (
+from glyph.specialized_workers.evaluators.output_evaluator import (
     OutputEvaluator,
     OutputPolicy,
 )
-from glyph.evaluation.specialized_workers.security_evaluator import (
+from glyph.specialized_workers.evaluators.security_evaluator import (
     SecurityEvaluator,
     SecurityPolicy,
 )
-from glyph.evaluation.specialized_workers.performance_evaluator import (
+from glyph.specialized_workers.evaluators.performance_evaluator import (
     PerformanceEvaluator,
     PerformancePolicy,
 )
-from glyph.evaluation.specialized_workers.orchestrator import (
+from glyph.specialized_workers.orchestrator import (
     EvaluationOrchestrator,
     OrchestratorConfig,
 )
-from glyph.evaluation.specialized_workers.aggregator import (
+from glyph.specialized_workers.aggregator import (
     ResultAggregator,
     AggregationPolicy,
     ReleaseDecision,
 )
-from glyph.evaluation.specialized_workers.storage import (
+from glyph.specialized_workers.infra.storage_interface import (
     WorkerResultStorage,
     get_storage,
     reset_storage,
@@ -413,7 +413,7 @@ class TestResultAggregator:
     def test_blocks_on_critical_security(self, sample_evidence):
         """Test blocking on critical security failures."""
         # Create a mock security failure
-        from glyph.evaluation.specialized_workers.base import WorkerResult
+        from glyph.specialized_workers.base import WorkerResult
         
         worker_results = {
             WorkerType.SECURITY: WorkerResult(
@@ -452,7 +452,7 @@ class TestResultAggregator:
     def test_approves_good_results(self, sample_evidence):
         """Test approval when all workers pass with good scores."""
         # Create mock passing results
-        from glyph.evaluation.specialized_workers.base import WorkerResult
+        from glyph.specialized_workers.base import WorkerResult
         
         worker_results = {
             worker_type: WorkerResult(
@@ -519,7 +519,7 @@ class TestWorkerResultStorage:
         )
         
         # Complete first attempt
-        from glyph.evaluation.specialized_workers.base import WorkerResult
+        from glyph.specialized_workers.base import WorkerResult
         result = WorkerResult(
             evaluation_id="eval_001",
             worker_type=WorkerType.TOOL_POLICY,
@@ -558,7 +558,7 @@ class TestWorkerResultStorage:
             worker_version="1.0.0",
         )
         
-        from glyph.evaluation.specialized_workers.base import WorkerResult
+        from glyph.specialized_workers.base import WorkerResult
         result = WorkerResult(
             evaluation_id="eval_001",
             worker_type=WorkerType.TOOL_POLICY,

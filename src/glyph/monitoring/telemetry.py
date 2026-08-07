@@ -6,7 +6,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any
 
-from glyph.core.models import TrialRecord, TrialStatus
+from glyph.core.domain_models import TrialRecord, TrialStatus
 
 _SYSTEM_ERROR_STATUSES = frozenset(
     {TrialStatus.ERROR, TrialStatus.TIMEOUT, TrialStatus.BUDGET_EXCEEDED}

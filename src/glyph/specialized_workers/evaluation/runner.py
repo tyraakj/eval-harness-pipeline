@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvalCase,
     EvaluationSuite,
@@ -41,7 +41,7 @@ from glyph.security.contracts import (
     SandboxProvider,
     Target,
 )
-from glyph.security.sandbox import NoopSandboxProvider
+from glyph.security.live_sandbox import NoopSandboxProvider
 from glyph.targets.langgraph_target import BudgetExceededError
 from glyph.utils import canonical_json, content_hash, sanitize, sanitize_text
 from glyph.utils.artifacts import JsonlArtifactWriter

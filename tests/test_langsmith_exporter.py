@@ -14,7 +14,7 @@ from glyph.evaluation.human import (
     HumanReviewTask,
 )
 from glyph.exporters.langsmith_exporter import LangSmithExporter
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     Grade,
     OnlineEvaluationPolicy,

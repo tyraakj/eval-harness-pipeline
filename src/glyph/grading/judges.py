@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from pydantic import Field, JsonValue
 
-from glyph.core.models import EvalCase, FrozenModel, Grade, TargetResult
+from glyph.core.domain_models import EvalCase, FrozenModel, Grade, TargetResult
 
 
 class JudgeDecision(FrozenModel):

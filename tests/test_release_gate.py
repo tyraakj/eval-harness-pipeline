@@ -7,14 +7,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from glyph.core.models import (
+from glyph.core.domain_models import (
     ReleaseDecision,
     ReleasePolicy,
     RunSummary,
     SuiteSummary,
     SuiteType,
 )
-from glyph.evaluation.release_gate import ReleaseGate
+from glyph.specialized_workers.gates.release_gate import ReleaseGate
 
 
 @pytest.fixture

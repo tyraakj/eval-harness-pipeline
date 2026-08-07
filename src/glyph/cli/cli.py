@@ -12,9 +12,9 @@ from typing import Annotated, Any, cast
 import typer
 from rich.table import Table
 
-from glyph.core.models import RunSummary, TrialRecord
+from glyph.core.domain_models import RunSummary, TrialRecord
 from glyph.evaluation.definition import EvaluationDefinition
-from glyph.evaluation.release_gate import ReleaseGate
+from glyph.specialized_workers.gates.release_gate import ReleaseGate
 from glyph.evaluation.runner import EvaluationRunner
 from glyph.generation import (
     CaseGenerator,
@@ -225,7 +225,7 @@ def release_command(
     ] = OutputFormat.RICH,
 ) -> None:
     """Evaluate whether a release should be allowed based on evaluation results."""
-    from glyph.core.models import ReleasePolicy
+    from glyph.core.domain_models import ReleasePolicy
     
     # Load deterministic summary
     deterministic_summary = _load_summary(deterministic)
@@ -509,7 +509,7 @@ def init_command(
 
 from langgraph.graph import END, START, StateGraph
 
-from glyph.core.models import Budget, SandboxRequirements
+from glyph.core.domain_models import Budget, SandboxRequirements
 from glyph.evaluation.definition import EvaluationDefinition
 from glyph.grading.graders import ContainsAllGrader
 from glyph.targets.langgraph_target import LangGraphTarget

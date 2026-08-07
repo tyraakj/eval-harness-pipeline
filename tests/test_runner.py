@@ -8,7 +8,7 @@ from typing import TypedDict
 import pytest
 from langgraph.graph import END, START, StateGraph
 
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvalCase,
     SandboxRequirements,

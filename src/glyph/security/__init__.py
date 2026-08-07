@@ -10,7 +10,7 @@ from glyph.security.contracts import (
     SandboxProvider,
     Target,
 )
-from glyph.security.sandbox import (
+from glyph.security.live_sandbox import (
     NoopSandboxProvider,
     RunContext,
     SandboxSession,

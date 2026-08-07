@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from glyph.core.models import EvalCase
+from glyph.core.domain_models import EvalCase
 from glyph.evaluation.optimizers import DSpyOptimizerAdapter
 
 

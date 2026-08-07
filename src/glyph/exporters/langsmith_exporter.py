@@ -12,7 +12,7 @@ from glyph.evaluation.human import (
     HumanGrade,
     HumanReviewDecision,
 )
-from glyph.core.models import EvalCase, RunSummary, TrialRecord, TrialStatus
+from glyph.core.domain_models import EvalCase, RunSummary, TrialRecord, TrialStatus
 from glyph.utils import sanitize
 
 

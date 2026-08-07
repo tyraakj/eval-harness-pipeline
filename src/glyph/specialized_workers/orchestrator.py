@@ -7,18 +7,18 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     BaseSpecializedWorker,
     EvaluationEvidence,
     WorkerResult,
     WorkerType,
 )
-from glyph.evaluation.specialized_workers.graph_evaluator import GraphEvaluator
-from glyph.evaluation.specialized_workers.output_evaluator import OutputEvaluator
-from glyph.evaluation.specialized_workers.performance_evaluator import PerformanceEvaluator
-from glyph.evaluation.specialized_workers.retrieval_evaluator import RetrievalEvaluator
-from glyph.evaluation.specialized_workers.security_evaluator import SecurityEvaluator
-from glyph.evaluation.specialized_workers.tool_evaluator import ToolEvaluator
+from glyph.specialized_workers.evaluators.graph_evaluator import GraphEvaluator
+from glyph.specialized_workers.evaluators.output_evaluator import OutputEvaluator
+from glyph.specialized_workers.evaluators.performance_evaluator import PerformanceEvaluator
+from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
+from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
+from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
 
 
 @dataclass
@@ -262,7 +262,7 @@ class EvaluationOrchestrator:
         error_message: str,
     ) -> WorkerResult:
         """Create an error result for a worker that failed."""
-        from glyph.evaluation.specialized_workers.base import (
+        from glyph.specialized_workers.base import (
             GraderMode,
             Severity,
         )

@@ -20,11 +20,11 @@ from rich.theme import Theme
 
 if TYPE_CHECKING:
     from glyph.grading.comparison import Comparison
-    from glyph.core.models import EvalCase, ReleaseDecision, RunSummary, TrialRecord
+    from glyph.core.domain_models import EvalCase, ReleaseDecision, RunSummary, TrialRecord
 
 
-# ─── Theme ────────────────────────────────────────────────────────────────────
-# Soft, terminal-native palette — avoids neon; feels at home on dark backgrounds.
+# â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Soft, terminal-native palette â€” avoids neon; feels at home on dark backgrounds.
 
 _THEME = Theme(
     {
@@ -50,7 +50,7 @@ def _flush_console() -> None:
         return
 
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _RULE_CHAR = "-"
 _CHECK = "[PASS]"
@@ -68,7 +68,7 @@ class OutputFormat:
     PR_COMMENT = "pr-comment"
 
 
-# ─── Utilities ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _rule(title: str = "", style: str = "dim") -> None:
     """Print a thin horizontal rule with an optional centred title."""
@@ -94,10 +94,10 @@ def _status_icon(passed: bool) -> str:
     return f"[glyph.success]{_CHECK}[/glyph.success]" if passed else f"[glyph.danger]{_CROSS}[/glyph.danger]"
 
 
-# ─── Status bar ───────────────────────────────────────────────────────────────
+# â”€â”€â”€ Status bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def print_status_bar(*, cases: int | None = None, duration: str | None = None) -> None:
-    """Print a dim footer line with context — like agent CLIs."""
+    """Print a dim footer line with context â€” like agent CLIs."""
     parts: list[str] = ["glyph 0.1.0"]
     if cases is not None:
         parts.append(f"{cases} cases")
@@ -112,7 +112,7 @@ def print_status_bar(*, cases: int | None = None, duration: str | None = None) -
     _flush_console()
 
 
-# ─── Command header ──────────────────────────────────────────────────────────
+# â”€â”€â”€ Command header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def print_command_start(command: str, *, detail: str, run_id: str | None = None) -> None:
     """Render a compact, terminal-native command header for interactive use."""
@@ -124,7 +124,7 @@ def print_command_start(command: str, *, detail: str, run_id: str | None = None)
     _flush_console()
 
 
-# ─── Live trial stream ────────────────────────────────────────────────────────
+# â”€â”€â”€ Live trial stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def print_trial_start(case: EvalCase, repetition_index: int) -> None:
     """Print the point at which a queued trial starts consuming execution capacity."""
@@ -221,7 +221,7 @@ def _print_trial_event_rpc(record: TrialRecord) -> None:
     _flush_console()
 
 
-# ─── Run summary formatters ──────────────────────────────────────────────────
+# â”€â”€â”€ Run summary formatters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def format_cli_output(summary: RunSummary, output_format: str = OutputFormat.RICH) -> None:
     """Format and display CLI output."""
@@ -286,7 +286,7 @@ def format_run_summary(summary: RunSummary, output_format: str = OutputFormat.RI
 
 
 def _format_run_summary_rich(summary: RunSummary) -> None:
-    """Format a compact completion report — clean, indented, no heavy borders."""
+    """Format a compact completion report â€” clean, indented, no heavy borders."""
     blocked = bool(summary.errors or summary.timeouts)
     status = "BLOCKED" if blocked else "EVALUATION COMPLETE"
     style = "glyph.danger" if blocked else "glyph.muted"
@@ -321,7 +321,7 @@ def _format_run_summary_rich(summary: RunSummary) -> None:
     console.print()
     _rule()
 
-    # Suite breakdown — lightweight table
+    # Suite breakdown â€” lightweight table
     if summary.suites:
         console.print()
         suite_table = Table(
@@ -441,7 +441,7 @@ def _format_run_summary_pr_comment(summary: RunSummary) -> None:
     console.print("\n".join(output))
 
 
-# ─── Comparison formatters ────────────────────────────────────────────────────
+# â”€â”€â”€ Comparison formatters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def format_comparison(comparison: Comparison, output_format: str = OutputFormat.RICH) -> None:
     """Format and display a comparison between candidate and baseline."""
@@ -466,7 +466,7 @@ def format_comparison(comparison: Comparison, output_format: str = OutputFormat.
 
 
 def _format_comparison_rich(comparison: Comparison) -> None:
-    """Format comparison — clean indented output, no heavy panels."""
+    """Format comparison â€” clean indented output, no heavy panels."""
     has_regressions = bool(comparison.regressed)
     title = "REGRESSIONS DETECTED" if has_regressions else "BASELINE COMPARISON"
     style = "glyph.danger" if has_regressions else "glyph.muted"
@@ -520,10 +520,10 @@ def _format_comparison_rich(comparison: Comparison) -> None:
         detail_table.add_column("Change", justify="center")
 
         for case_id in comparison.improved:
-            detail_table.add_row(case_id, "[green]▲ improved[/green]")
+            detail_table.add_row(case_id, "[green]â–² improved[/green]")
 
         for case_id in comparison.regressed:
-            detail_table.add_row(case_id, "[red]▼ regressed[/red]")
+            detail_table.add_row(case_id, "[red]â–¼ regressed[/red]")
 
         console.print(detail_table)
 
@@ -558,7 +558,7 @@ def _format_comparison_pr_comment(comparison: Comparison) -> None:
     console.print("\n".join(output))
 
 
-# ─── Release decision formatters ─────────────────────────────────────────────
+# â”€â”€â”€ Release decision formatters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def format_release_decision(decision: ReleaseDecision, output_format: str = OutputFormat.RICH) -> None:
     """Format and display a release decision."""
@@ -574,7 +574,7 @@ def format_release_decision(decision: ReleaseDecision, output_format: str = Outp
 
 
 def _format_release_decision_rich(decision: ReleaseDecision) -> None:
-    """Format release decision — clean checklist, no nested panels."""
+    """Format release decision â€” clean checklist, no nested panels."""
     verdict = "RELEASE ALLOWED" if decision.allowed else "RELEASE BLOCKED"
     style = "glyph.success" if decision.allowed else "glyph.danger"
 
@@ -660,7 +660,7 @@ def _format_release_decision_pr_comment(decision: ReleaseDecision) -> None:
     console.print("\n".join(output))
 
 
-# ─── Trial detail formatters ─────────────────────────────────────────────────
+# â”€â”€â”€ Trial detail formatters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def format_trial_detail(record: TrialRecord, output_format: str = OutputFormat.RICH) -> None:
     """Format and display a single trial record."""
@@ -676,7 +676,7 @@ def format_trial_detail(record: TrialRecord, output_format: str = OutputFormat.R
 
 
 def _format_trial_detail_rich(record: TrialRecord) -> None:
-    """Format trial detail — clean indented layout."""
+    """Format trial detail â€” clean indented layout."""
     status = record.status.value.upper()
     status_style = {
         "PASSED": "glyph.success",
@@ -746,7 +746,7 @@ def _format_trial_detail_pr_comment(record: TrialRecord) -> None:
     console.print("\n".join(output))
 
 
-# ─── Progress bar ─────────────────────────────────────────────────────────────
+# â”€â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def create_progress_callback(total_trials: int) -> tuple[Progress, Callable[[TrialRecord], None]]:
     """Create a progress bar and callback function for trial updates."""

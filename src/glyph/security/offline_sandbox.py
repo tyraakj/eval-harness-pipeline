@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from glyph.core.models import EvalCase, SandboxSession
-from glyph.security.sandbox import RunContext, SandboxSessionError
+from glyph.core.domain_models import EvalCase, SandboxSession
+from glyph.security.live_sandbox import RunContext, SandboxSessionError
 
 
 @dataclass(frozen=True, slots=True)

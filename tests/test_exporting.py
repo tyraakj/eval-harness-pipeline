@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from glyph.exporters.exporting import ExportDispatcher
-from glyph.core.models import (
+from glyph.core.domain_models import (
     EvalCase,
     ExportPolicy,
     Provenance,

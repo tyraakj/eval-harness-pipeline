@@ -13,7 +13,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
 
-from glyph.core.models import Provenance, TrialRecord, TrialStatus
+from glyph.core.domain_models import Provenance, TrialRecord, TrialStatus
 from glyph.monitoring.telemetry import EvaluationTelemetry
 
 

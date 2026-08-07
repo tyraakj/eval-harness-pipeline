@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
-from glyph.db.models import Base
+from glyph.db.orm_models import Base
 
 # Database URL from environment variable
 DATABASE_URL = os.getenv(

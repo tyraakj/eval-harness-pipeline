@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from glyph.db.models import Run
+from glyph.db.orm_models import Run
 from glyph.db.session import get_session
 from glyph.evaluation.tasks import run_evaluation
 from glyph.schemas.runs import RunListItem, RunResponse

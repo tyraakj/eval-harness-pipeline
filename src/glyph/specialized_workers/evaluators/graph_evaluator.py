@@ -8,7 +8,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from glyph.evaluation.specialized_workers.base import (
+from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
     EvaluationEvidence,
@@ -17,7 +17,7 @@ from glyph.evaluation.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.evaluation.specialized_workers.artifact import EvaluationArtifact
+from glyph.specialized_workers.artifact import EvaluationArtifact
 
 
 @dataclass

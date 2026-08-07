@@ -4,7 +4,7 @@ It deliberately creates drafts only. Replace it with an application-owned LLM
 or grounded generator before promoting cases for a real evaluation.
 """
 
-from glyph.core.models import EvalCase
+from glyph.core.domain_models import EvalCase
 from glyph.generation import GenerationSpec
 
 
@@ -17,7 +17,7 @@ class ExampleSyntheticGenerator:
         return [
             EvalCase(
                 id=f"generated-{index + 1:03d}",
-                input={"request": f"{spec.seed_phrase} — scenario {index + 1}"},
+                input={"request": f"{spec.seed_phrase} â€” scenario {index + 1}"},
                 expected={"review_required": True},
                 suite=suite,
                 tags=spec.tags | frozenset({"synthetic", suite.value}),

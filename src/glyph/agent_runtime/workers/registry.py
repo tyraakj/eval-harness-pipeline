@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from glyph.workers.models import (
+from glyph.agent_runtime.worker_models import (
     NodeAnalysisCriteria,
     ToolExpertise,
     WorkerCapability,
@@ -57,7 +57,7 @@ class WorkerRegistry:
 
         metadata_schemas = {}
         for ms in definition.metadata_schemas:
-            from glyph.workers.models import MetadataSchema
+            from glyph.agent_runtime.worker_models import MetadataSchema
             metadata_schemas[ms["schema_name"]] = MetadataSchema(**ms)
 
         node_analysis_criteria = {}

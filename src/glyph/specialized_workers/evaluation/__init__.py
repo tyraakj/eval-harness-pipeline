@@ -29,7 +29,7 @@ from glyph.evaluation.optimizers import (
     OptimizationResult,
     Optimizer,
 )
-from glyph.evaluation.release_gate import ReleaseGate
+from glyph.specialized_workers.gates.release_gate import ReleaseGate
 from glyph.evaluation.runner import EvaluationRunner
 
 __all__ = [

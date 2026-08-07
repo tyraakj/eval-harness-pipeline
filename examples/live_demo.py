@@ -7,7 +7,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from glyph.core.models import Budget, SandboxRequirements
+from glyph.core.domain_models import Budget, SandboxRequirements
 from glyph.evaluation.definition import EvaluationDefinition
 from glyph.grading.graders import ContainsAllGrader
 from glyph.targets.langgraph_target import LangGraphTarget

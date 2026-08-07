@@ -3,7 +3,7 @@
 import pytest
 from datetime import UTC, datetime
 
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
@@ -11,20 +11,20 @@ from glyph.evaluation.specialized_workers.artifact import (
     ReplayBundle,
     UsageMetrics,
 )
-from glyph.evaluation.specialized_workers.cache import (
+from glyph.specialized_workers.infra.cache import (
     CacheEntry,
     CacheLookupResult,
     CacheRouter,
     ContentAddressedCache,
 )
-from glyph.evaluation.specialized_workers.executors import (
+from glyph.specialized_workers.infra.executors import (
     ExecutionContext,
     ExecutionResult,
     LiveExecutor,
     ReplayExecutor,
     RunOrchestrator,
 )
-from glyph.evaluation.specialized_workers.storage_layers import (
+from glyph.specialized_workers.infra.storage_interface_layers import (
     InMemoryObjectStorage,
     InMemoryPostgreSQLStorage,
     InMemoryRedisStorage,
@@ -32,7 +32,7 @@ from glyph.evaluation.specialized_workers.storage_layers import (
     RunMetadata,
     StorageManager,
 )
-from glyph.evaluation.specialized_workers.baseline import (
+from glyph.specialized_workers.evaluators.baseline_evaluator import (
     BaselineComparator,
     BaselineRun,
     BaselineService,
@@ -40,13 +40,13 @@ from glyph.evaluation.specialized_workers.baseline import (
     CandidateService,
     ComparisonResult,
 )
-from glyph.evaluation.specialized_workers.grader_router import (
+from glyph.specialized_workers.grader_router import (
     GraderRouter,
     RoutingCriteria,
     RoutingDecision,
     SelectiveEvaluationPipeline,
 )
-from glyph.evaluation.specialized_workers.dataset_service import (
+from glyph.specialized_workers.worker_dataset_service import (
     Case,
     DatasetGenerator,
     DatasetService,
@@ -55,7 +55,7 @@ from glyph.evaluation.specialized_workers.dataset_service import (
     GenerationConfig,
     GenerationMode,
 )
-from glyph.evaluation.specialized_workers.ai_decision_gates import (
+from glyph.specialized_workers.gates.ai_decision_gates import (
     AIJudgeGateChain,
     AIJudgeInvocationConfig,
     AIJudgeResult,
@@ -1052,7 +1052,7 @@ class TestAIDecisionGates:
         gate = PostResultGate("test_post_result")
         
         # Create a WorkerResult with prohibited reason code
-        from glyph.evaluation.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
+        from glyph.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
         
         worker_result = WorkerResult(
             evaluation_id="eval_123",
@@ -1100,7 +1100,7 @@ class TestAIDecisionGates:
         gate = QualityControlGate("test_quality")
         
         # Create AI result with suspicious pattern
-        from glyph.evaluation.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
+        from glyph.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
         
         worker_result = WorkerResult(
             evaluation_id="eval_123",

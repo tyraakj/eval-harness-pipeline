@@ -18,7 +18,7 @@ from glyph.utils.prompts import (
     get_prompt_hash,
     render_prompt,
 )
-from glyph.utils.utils import (
+from glyph.utils.common import (
     canonical_json,
     create_singleton,
     ensure_dir,

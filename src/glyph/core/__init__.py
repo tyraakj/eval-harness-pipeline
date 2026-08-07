@@ -14,7 +14,7 @@ from glyph.core.config import (
     list_available_graders,
     load_config,
 )
-from glyph.core.models import (
+from glyph.core.domain_models import (
     Budget,
     EvalCase,
     EvaluationSuite,

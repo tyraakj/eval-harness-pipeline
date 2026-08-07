@@ -8,14 +8,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from glyph.evaluation.specialized_workers.artifact import (
+from glyph.specialized_workers.artifact import (
     ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
     ModelManifest,
     UsageMetrics,
 )
-from glyph.evaluation.specialized_workers.base import EvaluationEvidence
+from glyph.specialized_workers.base import EvaluationEvidence
 
 logger = logging.getLogger(__name__)
 

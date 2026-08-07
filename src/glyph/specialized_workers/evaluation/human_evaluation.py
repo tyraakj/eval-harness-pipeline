@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from pydantic import Field, JsonValue, model_validator
 
-from glyph.core.models import FrozenModel
+from glyph.core.domain_models import FrozenModel
 
 
 class HumanReviewDecision(StrEnum):
