@@ -1,0 +1,150 @@
+{
+  "trace_id": "2e12b34a-1747-4592-8b6c-9708f8ca56b2",
+  "run_id": "run-b3ebc3c6-1443-4c30-bbb8-547e1e0e50c8",
+  "started_at": "2026-08-06T12:48:32.142586+00:00",
+  "finished_at": "2026-08-06T12:48:34.208898+00:00",
+  "duration_ms": 2066.312,
+  "spans": [
+    {
+      "span_id": "13bdfe34-9db7-4efd-8839-4cbeebe82dd7",
+      "parent_id": null,
+      "stage": "dataset_load",
+      "started_at": "2026-08-06T12:48:32.142847+00:00",
+      "finished_at": "2026-08-06T12:48:32.147339+00:00",
+      "duration_ms": 4.492,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "0818ae2a-1c3d-48cb-b7ac-4aea627dc91d",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:48:32.157592+00:00",
+      "finished_at": "2026-08-06T12:48:32.158044+00:00",
+      "duration_ms": 0.45199999999999996,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "ceeca5e2-9073-4ef6-8f87-dfe876a0cf03",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:48:32.158174+00:00",
+      "finished_at": "2026-08-06T12:48:33.180239+00:00",
+      "duration_ms": 1022.065,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "c686aceb-a08d-455a-aabe-26b8b8a9332f",
+      "parent_id": null,
+      "stage": "outcome_collect",
+      "started_at": "2026-08-06T12:48:33.180322+00:00",
+      "finished_at": "2026-08-06T12:48:33.180334+00:00",
+      "duration_ms": 0.012,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "29748b93-fe0b-4bf4-81f1-d8b207af150e",
+      "parent_id": null,
+      "stage": "grading",
+      "started_at": "2026-08-06T12:48:33.180362+00:00",
+      "finished_at": "2026-08-06T12:48:33.180883+00:00",
+      "duration_ms": 0.521,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "c2f994be-d5ab-4be2-97f2-6c777a589f88",
+      "parent_id": null,
+      "stage": "sandbox_destroy",
+      "started_at": "2026-08-06T12:48:33.180970+00:00",
+      "finished_at": "2026-08-06T12:48:33.181096+00:00",
+      "duration_ms": 0.126,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "d0255993-4a3c-48e1-9859-e84fbca9b884",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:48:33.189680+00:00",
+      "finished_at": "2026-08-06T12:48:33.189777+00:00",
+      "duration_ms": 0.097,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "2814617e-979d-4242-a505-ad25688dadfb",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:48:33.189954+00:00",
+      "finished_at": "2026-08-06T12:48:34.200290+00:00",
+      "duration_ms": 1010.3359999999999,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "65148edd-defe-43f1-8e94-110b8c8fb473",
+      "parent_id": null,
+      "stage": "outcome_collect",
+      "started_at": "2026-08-06T12:48:34.200404+00:00",
+      "finished_at": "2026-08-06T12:48:34.200425+00:00",
+      "duration_ms": 0.020999999999999998,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "4bc7109e-d25c-4938-9198-54d6ab4534aa",
+      "parent_id": null,
+      "stage": "grading",
+      "started_at": "2026-08-06T12:48:34.200482+00:00",
+      "finished_at": "2026-08-06T12:48:34.200959+00:00",
+      "duration_ms": 0.477,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "8df79168-d385-4993-8f0a-28e33680acdb",
+      "parent_id": null,
+      "stage": "sandbox_destroy",
+      "started_at": "2026-08-06T12:48:34.201121+00:00",
+      "finished_at": "2026-08-06T12:48:34.201408+00:00",
+      "duration_ms": 0.287,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    }
+  ],
+  "metadata": {
+    "target_version": "live-demo@1.0.0",
+    "suite_id": "default",
+    "suite_version": "1.0.0",
+    "cases_count": 2,
+    "repetitions": 1,
+    "sandbox_provider": "none",
+    "test": "test"
+  }
+}

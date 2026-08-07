@@ -1,0 +1,150 @@
+{
+  "trace_id": "6291ada4-c5f7-4cc9-bc45-5da8262f6cf5",
+  "run_id": "run-f2d09727-1b88-463a-900e-1d0b1ccf8ac7",
+  "started_at": "2026-08-06T12:53:39.605449+00:00",
+  "finished_at": "2026-08-06T12:53:41.658603+00:00",
+  "duration_ms": 2053.154,
+  "spans": [
+    {
+      "span_id": "22a0e409-0710-4f50-97a5-72995e324b81",
+      "parent_id": null,
+      "stage": "dataset_load",
+      "started_at": "2026-08-06T12:53:39.605484+00:00",
+      "finished_at": "2026-08-06T12:53:39.606657+00:00",
+      "duration_ms": 1.173,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "368f6f9f-5860-4029-8dcf-ead36babde3e",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:53:39.613306+00:00",
+      "finished_at": "2026-08-06T12:53:39.613350+00:00",
+      "duration_ms": 0.044,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "18471dd9-c457-4096-9e96-ad12809db938",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:53:39.613428+00:00",
+      "finished_at": "2026-08-06T12:53:40.626091+00:00",
+      "duration_ms": 1012.6630000000001,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "1348a7c6-ab18-4bfe-bb54-9fad43259e1f",
+      "parent_id": null,
+      "stage": "outcome_collect",
+      "started_at": "2026-08-06T12:53:40.626134+00:00",
+      "finished_at": "2026-08-06T12:53:40.626142+00:00",
+      "duration_ms": 0.008,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "3f72e353-51e9-49fd-8b6a-5f998100764e",
+      "parent_id": null,
+      "stage": "grading",
+      "started_at": "2026-08-06T12:53:40.626159+00:00",
+      "finished_at": "2026-08-06T12:53:40.626961+00:00",
+      "duration_ms": 0.8019999999999999,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "f9a65025-23b5-4c12-92c6-543ac5e14ca0",
+      "parent_id": null,
+      "stage": "sandbox_destroy",
+      "started_at": "2026-08-06T12:53:40.627038+00:00",
+      "finished_at": "2026-08-06T12:53:40.627140+00:00",
+      "duration_ms": 0.102,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "763c0fa6-3b9e-4d12-b298-3301627a2436",
+      "parent_id": null,
+      "stage": "sandbox_provision",
+      "started_at": "2026-08-06T12:53:40.633000+00:00",
+      "finished_at": "2026-08-06T12:53:40.633034+00:00",
+      "duration_ms": 0.034,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "4f421994-87eb-44f0-98a1-6dc910e9b60c",
+      "parent_id": null,
+      "stage": "target_execute",
+      "started_at": "2026-08-06T12:53:40.633106+00:00",
+      "finished_at": "2026-08-06T12:53:41.651584+00:00",
+      "duration_ms": 1018.478,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "ae70f130-c15f-4601-b093-ebaac4c3781d",
+      "parent_id": null,
+      "stage": "outcome_collect",
+      "started_at": "2026-08-06T12:53:41.651640+00:00",
+      "finished_at": "2026-08-06T12:53:41.651650+00:00",
+      "duration_ms": 0.01,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "7d6505ad-e613-4929-86b5-de89c6b1196d",
+      "parent_id": null,
+      "stage": "grading",
+      "started_at": "2026-08-06T12:53:41.651670+00:00",
+      "finished_at": "2026-08-06T12:53:41.651877+00:00",
+      "duration_ms": 0.207,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    },
+    {
+      "span_id": "908514e6-0bd4-4754-a3ab-de1e15900d8c",
+      "parent_id": null,
+      "stage": "sandbox_destroy",
+      "started_at": "2026-08-06T12:53:41.651935+00:00",
+      "finished_at": "2026-08-06T12:53:41.652025+00:00",
+      "duration_ms": 0.09000000000000001,
+      "status": "completed",
+      "error": null,
+      "attributes": {},
+      "events": []
+    }
+  ],
+  "metadata": {
+    "target_version": "live-demo@1.0.0",
+    "suite_id": "default",
+    "suite_version": "1.0.0",
+    "cases_count": 2,
+    "repetitions": 1,
+    "sandbox_provider": "none",
+    "test": "test"
+  }
+}
