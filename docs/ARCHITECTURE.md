@@ -48,6 +48,198 @@ The package follows the evaluation structure described in Anthropic's _Demystify
 The following distinctions are deliberate:
 
 1. **Outcome before path.** Prefer tests of environment state and user-visible results. Use exact trajectory requirements only for safety, authorization, or protocol constraints; valid alternative paths should not fail merely for being unexpected.
+
+## Zero-Token Replay Evaluation Architecture
+
+The evaluation harness implements a zero-token replay evaluation architecture that separates live execution from replay evaluation. Live runs call the model and create immutable evidence; subsequent evaluation, grading, comparison, and CI checks reuse that evidence without calling an LLM again.
+
+### Core Principle
+
+**Run live only when behavior changes. Reuse immutable evidence everywhere else.**
+
+This architecture provides strong regression and policy coverage through replayed evidence, while acknowledging that recorded traces are not equivalent to fresh model execution due to sampling, external API state, and runtime noise.
+
+### Key Components
+
+- **Immutable Evidence Artifacts**: Frozen `EvaluationArtifact` objects containing bounded, sanitized evidence
+- **Content-Addressed Cache**: Dependency-based caching for change-aware testing
+- **Live/Replay Executors**: Separated execution modes for model calls vs. zero-token replay
+- **Three-Tier Storage**: PostgreSQL (metadata), Object Storage (artifacts), Redis (queues/events)
+- **Baseline/Candidate Services**: Comparative evaluation with stable baseline references
+- **Grader Router**: Selective evaluation with deterministic-first and AI judge escalation
+- **Dataset Service**: Versioned datasets with zero-token generation modes
+- **Specialized Workers**: Domain-specific evaluators (Tool, Retrieval, Graph, Output, Security, Performance)
+
+### Execution Modes
+
+#### Live Mode
+Used when the model or target behavior must actually be tested:
+```
+dataset → baseline or candidate target → isolated sandbox → real model execution → 
+tool/retrieval/graph events → immutable evidence artifact → deterministic grading → 
+optional AI grading → release decision
+```
+
+#### Replay Mode
+Used for routine checks after evidence already exists:
+```
+frozen evidence artifact → replay executor → deterministic graders → 
+baseline comparison → release decision (zero tokens)
+```
+
+Replay mode can re-run:
+- Tool-call policy checks
+- Graph-node and edge checks
+- Retrieval metrics
+- Schema validation
+- Citation matching
+- Security rules
+- Latency and cost policy checks
+- Baseline comparisons
+- New deterministic graders
+- New release policies
+
+### Architecture Diagram
+
+```
+                    ┌─────────────────────┐
+                    │       Web UI         │
+                    │ Runs · Diffs · Costs │
+                    │ Traces · Policies    │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │      FastAPI API     │
+                    │ Auth · Projects      │
+                    │ Run creation         │
+                    └───────┬───────┬──────┘
+                            │       │
+                 ┌──────────▼─┐   ┌─▼────────────┐
+                 │ PostgreSQL │   │ Redis/Celery │
+                 │ Metadata   │   │ Job queues   │
+                 └──────┬─────┘   └──────┬───────┘
+                        │                │
+                        │       ┌────────▼────────┐
+                        │       │ Run Orchestrator │
+                        │       │ live/replay mode │
+                        │       └───────┬──────────┘
+                        │               │
+              ┌─────────▼────────────────▼─────────┐
+              │        Evaluation Core              │
+              │ Manifest · Cache · Graders · Policy │
+              └─────────┬────────────────┬─────────┘
+                        │                │
+             ┌──────────▼───────┐  ┌─────▼───────────┐
+             │ Live Executor    │  │ Replay Executor │
+             │ model/tool calls │  │ no model calls  │
+             │ sandbox          │  │ frozen evidence │
+             └──────────┬────────┘  └─────┬───────────┘
+                        │                 │
+                        └────────┬────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │ Specialized Graders │
+                      │ deterministic first │
+                      │ optional AI judges  │
+                      │ decision gates      │
+                      └──────────┬──────────┘
+                                 │
+                      ┌──────────▼──────────┐
+                      │ Baseline Comparator │
+                      │ Release Policy      │
+                      └─────────────────────┘
+```
+
+### Change-Aware Testing
+
+The content-addressed cache enables change-aware testing by computing cache keys from all execution dependencies:
+
+| Change | Re-execute target? |
+|---|---:|
+| Grader implementation changed | No |
+| Release threshold changed | No |
+| Dashboard filter changed | No |
+| Prompt changed | Yes |
+| Model version changed | Yes |
+| Tool contract changed | Usually |
+| Retrieval index changed | Yes |
+| Deterministic grader changed | No |
+| Sandbox policy changed | Depends on policy |
+| Application code changed | Usually |
+
+A cached trajectory can be regraded under a new grader configuration without re-running the agent, which is a major source of token savings.
+
+### Storage Architecture
+
+The system uses three storage layers:
+
+**PostgreSQL**: Run metadata, users, projects, statuses, summaries, indexes
+
+**Object Storage**: Immutable evidence artifacts, replay bundles, transcripts
+
+**Redis**: Queues, short-lived locks, progress events, cancellation signals
+
+### Release Decisions
+
+The policy engine produces architecture-compliant release decisions:
+
+- `passed`: All policy checks passed, safe to release
+- `blocked`: Critical security or behavioral regression detected
+- `inconclusive`: Non-critical failures or insufficient data
+- `not_comparable`: Baseline incompatible or incomplete data
+
+### AI Judge Decision Gates
+
+The grader router includes comprehensive decision gates for fail-closed AI-based evaluation:
+
+**Pre-Invocation Gates** (before calling AI judge):
+- **Artifact Suitability**: Validate artifact has sufficient data and valid state
+- **AI Availability**: Check if AI judge service is available
+- **Budget Constraints**: Verify spending limits are not exceeded
+- **Rate Limiting**: Ensure API rate limits are respected
+- **Case Criticality**: Validate case is critical enough to warrant AI evaluation
+
+**Post-Result Gates** (after AI judge returns):
+- **Result Structure**: Validate AI judge output has required fields
+- **Confidence Threshold**: Ensure AI judge confidence meets minimum requirements
+- **Reason Code Validation**: Block prohibited reason codes (e.g., hallucination detection)
+- **Required Fields**: Ensure result contains debugging information
+- **Fallback Mechanism**: Use deterministic evaluation if AI judge fails
+
+**Cost Control Gates**:
+- **Total Budget**: Prevent exceeding total spending limits
+- **Per-Case Budget**: Prevent excessive spending on individual cases
+- **Alert Threshold**: Warn when approaching spending limits
+- **Spending Tracking**: Track spending per case and overall
+
+**Quality Control Gates**:
+- **Suspicious Pattern Detection**: Identify generic or placeholder results
+- **Result Consistency**: Validate AI results align with deterministic findings
+- **Output Validation**: Ensure AI judge output meets quality standards
+
+**Confidence Control Gates**:
+- **Minimum Confidence**: Require minimum confidence levels
+- **Overconfidence Detection**: Warn on extremely high confidence (potential calibration issues)
+
+The decision gates implement a fail-closed safety model: when gates block or fallback, the system uses deterministic evaluation rather than proceeding with potentially unsafe AI judge results.
+
+### User-Facing Workflow
+
+The interface makes the distinction between live and replay modes clear:
+
+```
+Run 019 — Candidate v42
+Mode: Replay
+Model tokens: 0
+Evaluator tokens: 0
+Cases checked: 120
+Cached traces reused: 120
+Deterministic graders: 8
+AI judges: 0
+Decision: BLOCKED
+```
+
+For detailed documentation on specialized workers and zero-token replay, see [SPECIALIZED_WORKERS.md](SPECIALIZED_WORKERS.md).
 2. **Observable transcripts only.** Anthropic uses transcript broadly, including messages and reasoning exposed by the evaluated API. This package does not request or persist hidden chain-of-thought. It records provider-visible messages only through an explicit, reviewed adapter.
 3. **Isolation is supplied by a host provider.** The runner owns sandbox lifecycle and cleanup guarantees. Disposable filesystems, databases, browsers, containers, clocks, and network policy remain `SandboxProvider` responsibilities.
 4. **Model judges require human calibration.** A calibration identifier records which reviewed calibration set applies; it does not replace periodic expert transcript review or inter-rater analysis.

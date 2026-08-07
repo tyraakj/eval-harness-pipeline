@@ -46,6 +46,26 @@ This document maps the `src/glyph` package structure, providing a high-level ove
 - `human.py`: Asynchronous `HumanEvaluationLedger` and adjudication rules.
 - `online.py`: `OnlineEvaluator` for production trace evaluation with cost and sampling controls.
 - `optimizers.py`: DSPy optimizer integration logic.
+- `specialized_workers/`: Zero-token replay evaluation architecture.
+  - `artifact.py`: Immutable `EvaluationArtifact` for frozen evidence storage.
+  - `cache.py`: Content-addressed cache system with dependency-based cache keys.
+  - `executors.py`: Live and replay executors for separated execution modes.
+  - `storage_layers.py`: Three-tier storage (PostgreSQL, Object Storage, Redis).
+  - `baseline.py`: Baseline and candidate services for comparative evaluation.
+  - `grader_router.py`: Selective evaluation with AI judge escalation.
+  - `dataset_service.py`: Dataset versioning with zero-token generation modes.
+  - `base.py`: Base classes for workers and artifact processing.
+  - `tool_evaluator.py`: Tool policy evaluation (standard and artifact modes).
+  - `retrieval_evaluator.py`: Retrieval quality evaluation (standard and artifact modes).
+  - `graph_evaluator.py`: Graph compliance evaluation (standard and artifact modes).
+  - `output_evaluator.py`: Output quality evaluation (standard and artifact modes).
+  - `security_evaluator.py`: Security evaluation (standard and artifact modes).
+  - `performance_evaluator.py`: Performance evaluation (standard and artifact modes).
+  - `orchestrator.py`: Evaluation orchestrator for routing evidence to workers.
+  - `aggregator.py`: Result aggregation and release decision generation.
+  - `storage.py`: Worker result storage with idempotency handling.
+  - `celery_config.py`: Celery queue configuration for specialized workers.
+  - `tasks.py`: Celery tasks for distributed worker execution.
 
 ### `exporters/` (Data Export)
 - `exporting.py`: The `ExportDispatcher` and base export queue logic.

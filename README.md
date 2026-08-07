@@ -1,19 +1,25 @@
 # Glyph
 
-**A local-first evaluation and release-gating harness for AI applications and agents.**
+**A local-first evaluation and release-gating harness for AI applications and agents with built-in offline isolation and pipeline tracing.**
 
-Glyph runs a versioned evaluation suite against an application, captures bounded
-observable evidence, applies deterministic or calibrated grades, and compares a
-candidate with a pinned baseline. It is designed to make regressions explainable
+Glyph runs a versioned evaluation suite against an application in isolated sandboxes, captures bounded
+observable evidence, applies deterministic or calibrated grades, traces the entire evaluation pipeline,
+and compares a candidate with a pinned baseline. It is designed to make regressions explainable
 and CI decisions reproducible without making a hosted observability platform the
 source of truth.
 
-> **Current scope:** Glyph includes a seed-to-reviewed-dataset workflow, but
-> ships no hosted LLM generator, concrete Docker/Kubernetes sandbox provider,
-> or completed production web console. See [Product direction](#product-direction).
+> **Current scope:** Glyph includes a seed-to-reviewed-dataset workflow, built-in
+> offline sandbox providers, and internal pipeline tracing. It ships no hosted LLM generator,
+> Docker/Kubernetes sandbox provider, or completed production web console.
+> See [Product direction](#product-direction).
 
 ## What works today
 
+- **Offline evaluation with proper isolation** - Filesystem and network sandbox providers for true offline evaluation without external dependencies
+- **Internal pipeline tracing** - Built-in tracing of the entire evaluation workflow (dataset load, sandbox provision, target execute, outcome collect, grading, sandbox destroy) with automatic trace file generation
+- **Specialized workers for domain-specific evaluation** - Domain-specific workers (code execution, web navigation, security, data analysis, API integration) with deterministic routing and optional AI-powered analysis for complex evaluations
+- **LangGraph integration** - Deep tracing and analysis of LangGraph node/edge executions, tool calls, and metadata patterns
+- **Hybrid AI approach** - Deterministic core for reliability with optional AI enhancement for complex analysis, cost-aware routing
 - Versioned JSONL evaluation cases with stable IDs, tags, metadata, and
   capability, regression, and security suites.
 - LangGraph target adapter plus extensible target, grader, outcome-collector,
@@ -100,8 +106,9 @@ glyph release \
 ```
 
 The CLI uses one Rich terminal experience across Windows, macOS, Linux, and
-Git Bash. Use `--format json` for CI or automation, and `--format pr-comment`
-when publishing an evaluation summary to a pull request.
+Git Bash. Use `--format json` for CI or automation, `--format json-stream` for
+event streaming (Pi Agent-style), `--format rpc` for live pipe integration,
+and `--format pr-comment` when publishing an evaluation summary to a pull request.
 
 ## CLI workflow
 
@@ -114,6 +121,8 @@ Run `glyph guide` at any time for the same lifecycle in your terminal.
 | Validate cases before spending model budget | `glyph datasets validate --dataset datasets/example.jsonl` |
 | Generate and approve synthetic drafts | `glyph generation --help` |
 | Execute a version | `glyph run --factory ... --dataset ...` |
+| Execute with JSON stream | `glyph run --factory ... --dataset ... --format json-stream --stream` |
+| Execute with RPC mode | `glyph run --factory ... --dataset ... --format rpc --stream` |
 | Inspect a completed run | `glyph artifacts summary --artifact artifacts/results.jsonl` |
 | Inspect one case | `glyph artifacts trial --artifact artifacts/results.jsonl --case-id case-001` |
 | Compare a candidate | `glyph compare --candidate ... --baseline ...` |
