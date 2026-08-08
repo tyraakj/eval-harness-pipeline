@@ -2,13 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from glyph.security.contracts import (
-    EvaluationExporter,
-    Grader,
-    OutcomeCollector,
-    SandboxProvider,
-    Target,
-)
 from glyph.core.domain_models import (
     Budget,
     EvaluationSuite,
@@ -17,6 +10,13 @@ from glyph.core.domain_models import (
     SandboxRequirements,
 )
 from glyph.monitoring.telemetry import EvaluationTelemetry
+from glyph.security.contracts import (
+    EvaluationExporter,
+    Grader,
+    OutcomeCollector,
+    SandboxProvider,
+    Target,
+)
 
 
 @dataclass(frozen=True, slots=True)

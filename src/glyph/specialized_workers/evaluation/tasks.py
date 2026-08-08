@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 from typing import Any
 
 from celery import Celery
@@ -120,15 +121,16 @@ def run_evaluation(self, config: dict, run_id: str) -> dict:
 async def _update_run_status_failed(run_id: str, error_message: str) -> None:
     """Update run status to failed in database."""
     async with get_session() as session:
+        from datetime import datetime
+
         from sqlalchemy import update
-        from datetime import datetime, timezone
         
         await session.execute(
             update(Run)
             .where(Run.id == run_id)
             .values(
                 status="failed",
-                finished_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(UTC),
                 summary={"error": error_message, "status": "failed"},
             )
         )

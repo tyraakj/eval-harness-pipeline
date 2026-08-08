@@ -10,7 +10,6 @@ from langchain_core.messages import BaseMessage
 from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableConfig
 
-from glyph.security.contracts import RunContext
 from glyph.core.domain_models import (
     EvalCase,
     LoopIteration,
@@ -21,6 +20,7 @@ from glyph.core.domain_models import (
     TranscriptCapturePolicy,
     Usage,
 )
+from glyph.security.contracts import RunContext
 from glyph.utils import canonical_json, content_hash, sanitize
 
 

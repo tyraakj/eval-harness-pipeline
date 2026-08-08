@@ -5,13 +5,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
 
 from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
     BaseArtifactWorker,
-    BaseSpecializedWorker,
-    EvaluationEvidence,
     GraderMode,
     Severity,
     WorkerResult,
