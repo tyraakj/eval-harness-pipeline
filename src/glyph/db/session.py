@@ -64,6 +64,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Get a new async database session as a FastAPI dependency."""
+    session_maker = get_session_maker()
+    async with session_maker() as session:
+        yield session
+
+
 async def init_db() -> None:
     """Initialize database schema."""
     engine = get_engine()

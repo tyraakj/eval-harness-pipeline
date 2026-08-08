@@ -28,7 +28,7 @@ class Run(Base):
     suite_version: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="queued", index=True)
     started_at: Mapped[datetime] = mapped_column(index=True)
-    finished_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
     total: Mapped[int]
     cases: Mapped[int]
     passed: Mapped[int]
