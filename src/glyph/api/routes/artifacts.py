@@ -1,0 +1,147 @@
+"""Artifacts API routes."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from glyph.schemas.artifacts import ArtifactItem, ArtifactSummaryResponse
+from glyph.schemas.runs import TrialListItem
+from glyph.api.rate_limit import limiter
+from glyph.api.settings import Settings, get_settings
+
+router = APIRouter()
+
+
+@router.get("", response_model=list[ArtifactItem])
+@limiter.limit("120/minute")
+async def list_artifacts(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> list[ArtifactItem]:
+    """List all available artifacts."""
+    artifacts_dir = Path(settings.artifacts_dir)
+    if not artifacts_dir.exists():
+        return []
+        
+    artifacts = []
+    for p in artifacts_dir.glob("*.jsonl"):
+        stat = p.stat()
+        artifacts.append(ArtifactItem(
+            name=p.name,
+            path=str(p),
+            size_bytes=stat.st_size,
+            modified_at=datetime.fromtimestamp(stat.st_mtime)
+        ))
+    
+    return artifacts
+
+
+@router.get("/{name}/summary", response_model=ArtifactSummaryResponse)
+@limiter.limit("120/minute")
+async def get_artifact_summary(
+    request: Request,
+    name: str,
+    settings: Settings = Depends(get_settings),
+) -> ArtifactSummaryResponse:
+    """Get the RunSummary for an artifact."""
+    artifact_path = Path(settings.artifacts_dir) / name
+    if not artifact_path.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+        
+    try:
+        with open(artifact_path, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
+            
+        if not lines:
+            raise HTTPException(status_code=422, detail="Artifact file is empty")
+            
+        # Run summary should be the last line
+        summary_line = lines[-1]
+        data = json.loads(summary_line)
+        if data.get("event") != "run_complete":
+            raise ValueError("No run_complete event found")
+            
+        return ArtifactSummaryResponse(**data)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to load run summary: {str(e)}")
+
+
+@router.get("/{name}/trials", response_model=list[TrialListItem])
+@limiter.limit("120/minute")
+async def get_artifact_trials(
+    request: Request,
+    name: str,
+    status: str | None = Query(None),
+    suite: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    settings: Settings = Depends(get_settings),
+) -> list[TrialListItem]:
+    """Get trials from an artifact."""
+    artifact_path = Path(settings.artifacts_dir) / name
+    if not artifact_path.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+        
+    trials = []
+    skipped = 0
+    
+    try:
+        with open(artifact_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                    
+                data = json.loads(line)
+                if data.get("event") == "trial_complete":
+                    
+                    if status and data.get("status") != status:
+                        continue
+                        
+                    if suite and data.get("suite") != suite:
+                        continue
+                        
+                    if skipped < offset:
+                        skipped += 1
+                        continue
+                        
+                    if len(trials) >= limit:
+                        break
+                        
+                    trials.append(TrialListItem(**data))
+                    
+        return trials
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {str(e)}")
+
+
+@router.get("/{name}/trial/{case_id}", response_model=TrialListItem)
+@limiter.limit("120/minute")
+async def get_artifact_trial(
+    request: Request,
+    name: str,
+    case_id: str,
+    settings: Settings = Depends(get_settings),
+) -> TrialListItem:
+    """Get a specific trial from an artifact."""
+    artifact_path = Path(settings.artifacts_dir) / name
+    if not artifact_path.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+        
+    try:
+        with open(artifact_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                    
+                data = json.loads(line)
+                if data.get("event") == "trial_complete" and data.get("case_id") == case_id:
+                    return TrialListItem(**data)
+                    
+        raise HTTPException(status_code=404, detail="Trial not found in artifact")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {str(e)}")
