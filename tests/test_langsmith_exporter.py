@@ -8,12 +8,6 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from glyph.evaluation.human import (
-    HumanEvaluationLedger,
-    HumanReviewRubric,
-    HumanReviewTask,
-)
-from glyph.exporters.langsmith_exporter import LangSmithExporter
 from glyph.core.domain_models import (
     EvalCase,
     Grade,
@@ -23,6 +17,12 @@ from glyph.core.domain_models import (
     TrialRecord,
     TrialStatus,
 )
+from glyph.evaluation.human import (
+    HumanEvaluationLedger,
+    HumanReviewRubric,
+    HumanReviewTask,
+)
+from glyph.exporters.langsmith_exporter import LangSmithExporter
 
 
 class FakeClient:

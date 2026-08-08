@@ -1,12 +1,12 @@
 """Tests for offline sandbox providers."""
 
-import asyncio
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from glyph.core.domain_models import EvalCase, SuiteType
+from glyph.security.live_sandbox import RunContext
 from glyph.security.offline_sandbox import (
     CompositeSandboxProvider,
     FilesystemSandboxConfig,
@@ -14,7 +14,6 @@ from glyph.security.offline_sandbox import (
     NetworkSandboxConfig,
     NetworkSandboxProvider,
 )
-from glyph.security.live_sandbox import RunContext
 
 
 @pytest.mark.asyncio
@@ -98,7 +97,7 @@ async def test_composite_sandbox():
     assert "filesystem" in composite.capabilities
     assert "network" in composite.capabilities
     assert "temp_files" in composite.capabilities
-    assert "egress_control" in composite.capabilities
+    assert "egress_metadata_only" in composite.capabilities
     
     case = EvalCase(id="test-4", input={"question": "test"}, suite=SuiteType.CAPABILITY)
     context = RunContext(run_id="run-4", trial_id="trial-4", budget=None)
@@ -109,4 +108,8 @@ async def test_composite_sandbox():
     assert session.isolation == "composite"
     assert len(session.metadata["providers"]) == 2
     
+    # Test reset
+    await composite.reset(session)
+    
+    # Test destroy
     await composite.destroy(session)

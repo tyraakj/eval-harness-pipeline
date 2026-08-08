@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from glyph.exporters.exporting import ExportDispatcher
 from glyph.core.domain_models import (
     EvalCase,
     ExportPolicy,
@@ -14,6 +13,7 @@ from glyph.core.domain_models import (
     TrialRecord,
     TrialStatus,
 )
+from glyph.exporters.exporting import ExportDispatcher
 
 
 class FlakyExporter:

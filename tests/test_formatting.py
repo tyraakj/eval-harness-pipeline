@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from glyph.grading.comparison import Comparison
-from glyph.utils.formatting import OutputFormat, format_comparison, format_release_decision, format_run_summary, format_trial_detail
+
 from glyph.core.domain_models import (
     Grade,
     ReleaseDecision,
@@ -12,6 +11,14 @@ from glyph.core.domain_models import (
     SuiteSummary,
     TrialRecord,
     TrialStatus,
+)
+from glyph.grading.comparison import Comparison
+from glyph.utils.formatting import (
+    OutputFormat,
+    format_comparison,
+    format_release_decision,
+    format_run_summary,
+    format_trial_detail,
 )
 
 
@@ -83,7 +90,7 @@ def sample_release_decision() -> ReleaseDecision:
 @pytest.fixture
 def sample_trial_record() -> TrialRecord:
     """Create a sample TrialRecord for testing."""
-    from glyph.core.domain_models import Provenance, TargetResult
+    from glyph.core.domain_models import Provenance
     return TrialRecord(
         schema_version="1.0",
         run_id="test-run-123",
