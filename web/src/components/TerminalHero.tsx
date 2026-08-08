@@ -100,7 +100,7 @@ export default function TerminalHero() {
     if (isHovering) return;
     
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % TABS.length);
+      setActiveIndex((prev: number) => (prev + 1) % TABS.length);
     }, 5000);
     
     return () => clearInterval(interval);

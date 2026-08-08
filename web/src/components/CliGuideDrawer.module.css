@@ -1,0 +1,247 @@
+.drawerOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.4);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.drawerOverlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  width: 420px;
+  height: 100vh;
+  background-color: #ffffff;
+  box-shadow: -4px 0 25px rgba(0, 0, 0, 0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerOverlay.open .drawer {
+  transform: translateX(0);
+}
+
+.drawerHeader {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawerTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.searchBox {
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.drawerContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.fallbackNote {
+  background-color: #f1f5f9;
+  color: #64748b;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-bottom: 20px;
+}
+
+.skeletonSection {
+  margin-bottom: 30px;
+}
+
+.skeletonTitle {
+  height: 20px;
+  width: 120px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+.skeletonCard {
+  height: 100px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.commandCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.commandHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.commandName {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.copyButton {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.copyButton:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.commandDescription {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.exampleBlock {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  white-space: nowrap;
+}
+
+.flagsToggle {
+  background: transparent;
+  border: none;
+  color: #6366f1;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.flagsToggle:hover {
+  text-decoration: underline;
+}
+
+.flagsList {
+  margin-top: 12px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.flagItem {
+  margin-bottom: 8px;
+}
+
+.flagItem:last-child {
+  margin-bottom: 0;
+}
+
+.flagName {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.flagDesc {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  margin-top: 2px;
+}

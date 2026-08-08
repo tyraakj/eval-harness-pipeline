@@ -1,0 +1,84 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 24px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.runDate {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.fileSize {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.passRateBlock {
+  margin-bottom: 16px;
+}
+
+.passRate {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.passRate.good { color: #16a34a; }
+.passRate.ok { color: #ca8a04; }
+.passRate.bad { color: #dc2626; }
+.passRate.none { color: #94a3b8; }
+
+.testCount {
+  font-size: 0.9rem;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.incompleteLabel {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #64748b;
+  margin-top: auto;
+  align-self: flex-start;
+}

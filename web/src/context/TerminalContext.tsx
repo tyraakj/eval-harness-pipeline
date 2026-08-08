@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface TerminalContextType {
   activeIndex: number;
-  setActiveIndex: (index: number) => void;
+  setActiveIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const TerminalContext = createContext<TerminalContextType | undefined>(undefined);

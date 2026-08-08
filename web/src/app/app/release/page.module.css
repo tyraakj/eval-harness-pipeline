@@ -1,0 +1,154 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 24px;
+}
+
+.selectionBox {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.dropdownsRow {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.dropdownCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  background-color: #ffffff;
+}
+
+.select:focus {
+  border-color: #6366f1;
+}
+
+.checkBtn {
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.15s ease;
+  width: 100%;
+}
+
+.checkBtn:hover:not(:disabled) {
+  background-color: #1e293b;
+}
+
+.checkBtn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.resultsArea {
+  margin-top: 32px;
+}
+
+.decisionBox {
+  padding: 32px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 32px;
+  border: 2px solid transparent;
+}
+
+.decisionBox.safe {
+  background-color: #f0fdf4;
+  border-color: #22c55e;
+}
+
+.decisionBox.unsafe {
+  background-color: #fef2f2;
+  border-color: #ef4444;
+}
+
+.decisionTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.safe .decisionTitle { color: #16a34a; }
+.unsafe .decisionTitle { color: #dc2626; }
+
+.reasonsList {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto;
+  max-width: 600px;
+  text-align: left;
+}
+
+.reasonsList li {
+  font-size: 1rem;
+  color: #0f172a;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.reasonsList li::before {
+  content: '•';
+  color: #64748b;
+  font-weight: bold;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.errorBanner {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}

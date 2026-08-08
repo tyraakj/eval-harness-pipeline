@@ -1,0 +1,246 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.actionGroup {
+  display: flex;
+  gap: 12px;
+}
+
+.btnPrimary {
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background-color: #1e293b;
+}
+
+.btnSecondary {
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.summaryStrip {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  gap: 40px;
+  margin-bottom: 24px;
+}
+
+.summaryCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summaryLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summaryValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pillsBox {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pillCapability { background-color: #e0f2fe; color: #0369a1; }
+.pillRegression { background-color: #fef08a; color: #a16207; }
+.pillSecurity { background-color: #fee2e2; color: #b91c1c; }
+.pillTag { background-color: #f1f5f9; color: #475569; }
+
+.validationBox {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.validSuccess {
+  color: #16a34a;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.validError {
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.validWarning {
+  color: #ca8a04;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.validList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.validList li {
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tableBox {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  background-color: #f8fafc;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #0f172a;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.testId {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 500;
+}
+
+.preview {
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.deleteBtn:hover {
+  color: #dc2626;
+  text-decoration: underline;
+}
+
+.securityCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.securityTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 16px;
+}
+
+.secList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.secItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.secIcon {
+  margin-top: 2px;
+}
+
+.secIcon.covered { color: #16a34a; }
+.secIcon.missing { color: #eab308; }
+
+.secText {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.secDesc {
+  color: #64748b;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
