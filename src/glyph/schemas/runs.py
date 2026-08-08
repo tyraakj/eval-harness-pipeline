@@ -20,14 +20,14 @@ class TriggerRunResponse(BaseModel):
     status: str = Field(description="Status of the job (e.g., 'queued')")
 
 
-class RunResponse(BaseModel):
-    """Response schema for evaluation run details."""
+class RunBase(BaseModel):
+    """Base schema for run details."""
     id: str
     suite_id: str
     suite_version: str
-    status: str = Field(description="Current status of the run (queued, running, completed, failed)")
+    status: str = Field(description="Current status of the run (queued, running, completed, failed, cancelled)")
     started_at: datetime
-    finished_at: datetime
+    finished_at: datetime | None = None
     total: int
     cases: int
     passed: int
@@ -37,27 +37,35 @@ class RunResponse(BaseModel):
     pass_rate: float
     average_score: float
     artifact_path: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RunResponse(RunBase):
+    """Response schema for evaluation run details."""
     summary: dict[str, Any] | None = None
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-class RunListItem(BaseModel):
+class RunListItem(RunBase):
     """Simplified response schema for run list items."""
+    pass
+
+
+class TrialListItem(BaseModel):
+    """Simplified response schema for trial list items."""
     id: str
-    suite_id: str
-    suite_version: str
-    status: str = Field(description="Current status of the run (queued, running, completed, failed)")
+    run_id: str
+    case_id: str
+    suite: str
+    status: str
+    score: float
+    duration_ms: int
     started_at: datetime
-    finished_at: datetime
-    total: int
-    cases: int
-    passed: int
-    failed: int
-    errors: int
-    timeouts: int
-    pass_rate: float
-    average_score: float
-    artifact_path: str | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ValidateRunResponse(BaseModel):
+    """Response schema for validating a run request."""
+    valid: bool
+    errors: list[str] = Field(default_factory=list)
