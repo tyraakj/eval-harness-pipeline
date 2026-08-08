@@ -6,6 +6,7 @@ import pytest
 
 try:
     from fastapi.testclient import TestClient
+
     from glyph.api.main import app
     FASTAPI_AVAILABLE = True
 except ImportError:

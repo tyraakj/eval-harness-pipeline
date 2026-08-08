@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from glyph.grading.graders import ExactMatchGrader
 from glyph.core.domain_models import (
     EvalCase,
     OnlineEvaluationPolicy,
@@ -12,6 +11,7 @@ from glyph.core.domain_models import (
     TargetResult,
 )
 from glyph.evaluation.online import InMemoryOnlineCostLedger, OnlineEvaluator
+from glyph.grading.graders import ExactMatchGrader
 
 
 def policy(**updates: object) -> OnlineEvaluationPolicy:

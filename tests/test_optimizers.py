@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from types import ModuleType
 from typing import Any
 
@@ -27,7 +28,7 @@ async def test_dspy_adapter_compiles_and_records_candidate(
 ) -> None:
     fake_dspy = ModuleType("dspy")
     monkeypatch.setattr(
-        "glyph.evaluation.optimizers.importlib.import_module", lambda name: fake_dspy
+        "importlib.import_module", lambda name: fake_dspy
     )
     adapter = DSpyOptimizerAdapter(
         candidate_id="support-prompt-2",
@@ -72,7 +73,7 @@ async def test_dspy_adapter_bounds_serialized_candidate_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "glyph.evaluation.optimizers.importlib.import_module", lambda name: ModuleType("dspy")
+        "importlib.import_module", lambda name: ModuleType("dspy")
     )
     adapter = DSpyOptimizerAdapter(
         candidate_id="candidate",
