@@ -56,9 +56,9 @@ async def compare_runs(
         
         return ComparisonResponse(
             common_cases=result.common_cases,
-            improved=len(result.improved),
-            regressed=len(result.regressed),
-            unchanged=len(result.unchanged),
+            improved=[c.model_dump() for c in result.improved],
+            regressed=[c.model_dump() for c in result.regressed],
+            unchanged=[c.model_dump() for c in result.unchanged],
             candidate_pass_rate=result.candidate_pass_rate,
             baseline_pass_rate=result.baseline_pass_rate,
             pass_rate_delta=result.pass_rate_delta,

@@ -16,9 +16,9 @@ class ComparisonRequest(BaseModel):
 class ComparisonResponse(BaseModel):
     """Response schema for run comparison."""
     common_cases: int
-    improved: int
-    regressed: int
-    unchanged: int
+    improved: list[dict[str, Any]]
+    regressed: list[dict[str, Any]]
+    unchanged: list[dict[str, Any]]
     candidate_pass_rate: float
     baseline_pass_rate: float
     pass_rate_delta: float
