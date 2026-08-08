@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 # Set environment variables before any imports

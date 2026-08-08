@@ -1,38 +1,32 @@
 """Tests for AI judge decision gates - standalone test file."""
 
-import sys
 import os
+import sys
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from datetime import UTC, datetime
-from glyph.specialized_workers.gates.ai_decision_gates import (
-    AIJudgeGateChain,
-    AIJudgeInvocationConfig,
-    AIJudgeResult,
-    ConfidenceControlGate,
-    CostControlGate,
-    DecisionGate,
-    GateDecision,
-    GateResult,
-    GateType,
-    PostResultGate,
-    PreInvocationGate,
-    QualityControlGate,
-)
-from glyph.specialized_workers.base import (
-    WorkerResult,
-    WorkerType,
-    GraderMode,
-    Severity,
-)
 from glyph.specialized_workers.artifact import (
-    ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
     ModelManifest,
     UsageMetrics,
+)
+from glyph.specialized_workers.base import (
+    GraderMode,
+    Severity,
+    WorkerResult,
+    WorkerType,
+)
+from glyph.specialized_workers.gates.ai_decision_gates import (
+    AIJudgeGateChain,
+    AIJudgeInvocationConfig,
+    AIJudgeResult,
+    CostControlGate,
+    GateDecision,
+    GateType,
+    PostResultGate,
+    PreInvocationGate,
 )
 from glyph.specialized_workers.grader_router import RoutingCriteria
 
