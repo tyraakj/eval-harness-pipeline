@@ -278,7 +278,7 @@ def test_create_progress_callback():
     """Test that progress callback creation works."""
     from glyph.utils.formatting import create_progress_callback
     
-    progress, callback = create_progress_callback(total_trials=10)
+    progress, callback, completed = create_progress_callback(total_trials=10)
     assert progress is not None
     assert callback is not None
     # Should not raise when called

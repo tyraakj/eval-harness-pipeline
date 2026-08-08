@@ -8,10 +8,16 @@ from glyph.core.domain_models import TrialRecord
 
 
 @dataclass(frozen=True, slots=True)
+class CaseChange:
+    case_id: str
+    old_score: float
+    new_score: float
+
+@dataclass(frozen=True, slots=True)
 class Comparison:
     common_cases: int
-    improved: tuple[str, ...]
-    regressed: tuple[str, ...]
+    improved: tuple[CaseChange, ...]
+    regressed: tuple[CaseChange, ...]
     unchanged: tuple[str, ...]
     candidate_pass_rate: float
     baseline_pass_rate: float
@@ -47,12 +53,12 @@ def compare(candidate_path: Path, baseline_path: Path) -> Comparison:
         return record.status.value == "passed"
 
     improved = tuple(
-        case_id
+        CaseChange(case_id=case_id, old_score=baseline[case_id].score, new_score=candidate[case_id].score)
         for case_id in common
         if passed(candidate[case_id]) and not passed(baseline[case_id])
     )
     regressed = tuple(
-        case_id
+        CaseChange(case_id=case_id, old_score=baseline[case_id].score, new_score=candidate[case_id].score)
         for case_id in common
         if not passed(candidate[case_id]) and passed(baseline[case_id])
     )

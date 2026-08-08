@@ -127,9 +127,9 @@ def print_command_start(command: str, *, detail: str, run_id: str | None = None)
 
 def print_trial_start(case: EvalCase, repetition_index: int) -> None:
     """Print the point at which a queued trial starts consuming execution capacity."""
-    suffix = f" (trial {repetition_index + 1})" if repetition_index else ""
-    console.print(f"[glyph.brand]glyph[/glyph.brand] eval {case.id}{suffix}")
-    console.print(f"  [glyph.muted]running {case.suite.value} evaluation...[/glyph.muted]")
+    suffix = f" (repetition {repetition_index + 1})" if repetition_index else ""
+    console.print(f"[glyph.brand]glyph[/glyph.brand] test {case.id}{suffix}")
+    console.print(f"  [glyph.muted]running {case.suite.value} check...[/glyph.muted]")
     _flush_console()
 
 
@@ -250,8 +250,8 @@ def format_summary(summary: RunSummary) -> str:
 Run Summary
 -----------
 Run ID: {summary.run_id}
-Total Trials: {summary.total}
-Cases: {summary.cases}
+Total Tests: {summary.total}
+Tests: {summary.cases}
 Repetitions: {summary.repetitions}
 Passed: {summary.passed}
 Failed: {summary.failed}
@@ -294,8 +294,8 @@ def _format_run_summary_rich(summary: RunSummary) -> None:
     console.print()
 
     _kv("run", summary.run_id)
-    _kv("trials", str(summary.total))
-    _kv("cases x reps", f"{summary.cases} x {summary.repetitions}")
+    _kv("tests", str(summary.total))
+    _kv("tests x reps", f"{summary.cases} x {summary.repetitions}")
 
     pass_style = "glyph.success" if summary.passed else "glyph.muted"
     fail_style = "glyph.danger" if summary.failed else "glyph.muted"
@@ -314,7 +314,7 @@ def _format_run_summary_rich(summary: RunSummary) -> None:
     _kv("avg score", f"{summary.average_score:.2f}")
     duration_seconds = (summary.finished_at - summary.started_at).total_seconds()
     _kv("duration", f"{duration_seconds:.1f}s")
-    _kv("artifact", summary.artifact_path)
+    _kv("results file", summary.artifact_path)
 
     console.print()
     _rule()
@@ -323,14 +323,14 @@ def _format_run_summary_rich(summary: RunSummary) -> None:
     if summary.suites:
         console.print()
         suite_table = Table(
-            title="Suite Breakdown",
+            title="Category Breakdown",
             show_header=True,
             header_style="bold",
             box=box.SIMPLE_HEAD,
             padding=(0, 2),
             title_style="glyph.muted",
         )
-        suite_table.add_column("Suite", style="dim")
+        suite_table.add_column("Category", style="dim")
         suite_table.add_column("Total", justify="right")
         suite_table.add_column("Passed", justify="right")
         suite_table.add_column("Failed", justify="right")
@@ -428,9 +428,9 @@ def _format_run_summary_pr_comment(summary: RunSummary) -> None:
 
     if summary.suites:
         output.append("")
-        output.append("### Suite Breakdown")
+        output.append("### Category Breakdown")
         output.append("")
-        output.append("| Suite | Total | Passed | Failed | Errors | Pass Rate |")
+        output.append("| Category | Total | Passed | Failed | Errors | Pass Rate |")
         output.append("|-------|-------|--------|--------|--------|-----------|")
         for suite_type, suite in summary.suites.items():
             pass_rate = suite.pass_rate
@@ -439,7 +439,7 @@ def _format_run_summary_pr_comment(summary: RunSummary) -> None:
     console.print("\n".join(output))
 
 
-# â”€â”€â”€ Comparison formatters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ——— Comparison formatters —————————————————————————————————————————————————————
 
 def format_comparison(comparison: Comparison, output_format: str = OutputFormat.RICH) -> None:
     """Format and display a comparison between candidate and baseline."""
@@ -464,7 +464,7 @@ def format_comparison(comparison: Comparison, output_format: str = OutputFormat.
 
 
 def _format_comparison_rich(comparison: Comparison) -> None:
-    """Format comparison â€” clean indented output, no heavy panels."""
+    """Format comparison — clean indented output, no heavy panels."""
     has_regressions = bool(comparison.regressed)
     title = "REGRESSIONS DETECTED" if has_regressions else "BASELINE COMPARISON"
     style = "glyph.danger" if has_regressions else "glyph.muted"
@@ -473,7 +473,7 @@ def _format_comparison_rich(comparison: Comparison) -> None:
     _rule(title, style=style)
     console.print()
 
-    _kv("common cases", str(comparison.common_cases))
+    _kv("common tests", str(comparison.common_cases))
 
     delta = comparison.pass_rate_delta
     delta_sym = "+" if delta > 0 else ""
@@ -508,20 +508,27 @@ def _format_comparison_rich(comparison: Comparison) -> None:
     # Detail table for changed cases
     if comparison.improved or comparison.regressed:
         console.print()
+        console.print("  [bold]Tests that got worse[/bold]")
         detail_table = Table(
-            show_header=True,
-            header_style="bold",
-            box=box.SIMPLE_HEAD,
+            show_header=False,
+            box=None,
             padding=(0, 2),
         )
-        detail_table.add_column("Case ID", style="dim")
-        detail_table.add_column("Change", justify="center")
+        detail_table.add_column("Test ID", style="cyan")
+        detail_table.add_column("Reason", style="dim")
+        detail_table.add_column("Score", style="dim")
 
-        for case_id in comparison.improved:
-            detail_table.add_row(case_id, "[green]â–² improved[/green]")
+        for change in comparison.improved:
+            if hasattr(change, "case_id"):
+                detail_table.add_row(f"  {change.case_id}", "failed before · passed now", f"(score {change.old_score:.2f} -> {change.new_score:.2f})")
+            else:
+                detail_table.add_row(f"  {change}", "failed before · passed now", "")
 
-        for case_id in comparison.regressed:
-            detail_table.add_row(case_id, "[red]â–¼ regressed[/red]")
+        for change in comparison.regressed:
+            if hasattr(change, "case_id"):
+                detail_table.add_row(f"  {change.case_id}", "passed before · failed now", f"(score {change.old_score:.2f} -> {change.new_score:.2f})")
+            else:
+                detail_table.add_row(f"  {change}", "passed before · failed now", "")
 
         console.print(detail_table)
 
@@ -533,7 +540,7 @@ def _format_comparison_pr_comment(comparison: Comparison) -> None:
     output.append("")
     output.append("| Metric | Value |")
     output.append("|--------|-------|")
-    output.append(f"| Common Cases | {comparison.common_cases} |")
+    output.append(f"| Common Tests | {comparison.common_cases} |")
     output.append(f"| Improved | {len(comparison.improved)} |")
     output.append(f"| Regressed | {len(comparison.regressed)} |")
     output.append(f"| Unchanged | {len(comparison.unchanged)} |")
@@ -546,11 +553,13 @@ def _format_comparison_pr_comment(comparison: Comparison) -> None:
 
     if comparison.improved or comparison.regressed:
         output.append("")
-        output.append("### Case Changes")
+        output.append("### Test Changes")
         output.append("")
-        for case_id in comparison.improved:
+        for change in comparison.improved:
+            case_id = getattr(change, "case_id", str(change))
             output.append(f"- {case_id}: UP")
-        for case_id in comparison.regressed:
+        for change in comparison.regressed:
+            case_id = getattr(change, "case_id", str(change))
             output.append(f"- {case_id}: DOWN")
 
     console.print("\n".join(output))
@@ -691,14 +700,15 @@ def _format_trial_detail_rich(record: TrialRecord) -> None:
     )
     console.print()
 
-    _kv("trial id", record.trial_id)
+    _kv("test result id", record.trial_id)
     _kv("repetition", str(record.repetition_index))
-    _kv("suite", record.suite)
+    _kv("category", record.suite.value if hasattr(record.suite, "value") else str(record.suite))
     _kv("duration", f"{record.duration_ms}ms")
     _kv("score", f"{record.score:.2f}")
 
     if record.sandbox is not None:
-        _kv("sandbox", f"{record.sandbox.provider} ({record.sandbox.isolation})")
+        isolation_type = "network blocking: off" if record.sandbox.isolation == "egress_metadata_only" else ("can run commands" if record.sandbox.isolation == "run_exec" else record.sandbox.isolation)
+        _kv("isolation", f"{record.sandbox.provider} ({isolation_type})")
         cleanup = f"[glyph.success]{_CHECK}[/glyph.success]" if record.sandbox_cleanup.succeeded else "[glyph.warning]not verified[/glyph.warning]"
         _kv("cleanup", cleanup)
 
@@ -725,9 +735,9 @@ def _format_trial_detail_pr_comment(record: TrialRecord) -> None:
     output.append("")
     output.append("| Field | Value |")
     output.append("|-------|-------|")
-    output.append(f"| Trial ID | {record.trial_id} |")
+    output.append(f"| Test Result ID | {record.trial_id} |")
     output.append(f"| Repetition | {record.repetition_index} |")
-    output.append(f"| Suite | {record.suite} |")
+    output.append(f"| Category | {record.suite} |")
     output.append(f"| Duration | {record.duration_ms}ms |")
     output.append(f"| Score | {record.score:.2f} |")
 
@@ -735,7 +745,7 @@ def _format_trial_detail_pr_comment(record: TrialRecord) -> None:
         output.append("")
         output.append("### Grades")
         output.append("")
-        output.append("| Grader | Score | Status |")
+        output.append("| Check | Score | Status |")
         output.append("|--------|-------|--------|")
         for grade in record.grades:
             status = "PASS" if grade.passed else "FAIL"
@@ -746,28 +756,60 @@ def _format_trial_detail_pr_comment(record: TrialRecord) -> None:
 
 # â”€â”€â”€ Progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-def create_progress_callback(total_trials: int) -> tuple[Progress, Callable[[TrialRecord], None]]:
+def create_progress_callback(total_trials: int) -> tuple[Progress, Callable[[TrialRecord], None], list[TrialRecord]]:
     """Create a progress bar and callback function for trial updates."""
     progress = Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeRemainingColumn(),
-        console=console
+        TextColumn("Running"),
+        BarColumn(bar_width=16),
+        TextColumn("{task.completed} / {task.total} tests"),
+        TextColumn("  [glyph.success]{task.fields[passed]} passed[/glyph.success] · "
+                   "[glyph.danger]{task.fields[failed]} failed[/glyph.danger] · "
+                   "[glyph.warning]{task.fields[errors]} error[/glyph.warning]"),
+        console=console,
+        transient=False,
     )
 
-    task = progress.add_task("[cyan]Running trials...", total=total_trials)
+    task = progress.add_task("", total=total_trials, passed=0, failed=0, errors=0)
 
     completed_trials: list[TrialRecord] = []
 
     def callback(record: TrialRecord) -> None:
         """Update progress bar after each trial completes."""
         completed_trials.append(record)
-        progress.update(task, advance=1)
-        completed = len(completed_trials)
-        passed = sum(1 for trial in completed_trials if trial.status.value == "passed")
-        pass_rate = passed / completed if completed > 0 else 0
-        progress.update(task, description=f"[cyan]Running trials... ({pass_rate:.0%} passing)")
+        passed = sum(1 for t in completed_trials if t.status.value == "passed")
+        failed = sum(1 for t in completed_trials if t.status.value in ("failed", "timeout", "budget_exceeded"))
+        errors = sum(1 for t in completed_trials if t.status.value == "error")
+        progress.update(task, advance=1, passed=passed, failed=failed, errors=errors)
 
-    return progress, callback
+    return progress, callback, completed_trials
+
+
+def print_failed_tests_inline(completed_trials: list[TrialRecord]) -> None:
+    """Print a compact summary of failed tests."""
+    failed = [t for t in completed_trials if t.status.value in ("failed", "timeout", "budget_exceeded", "error")]
+    if not failed:
+        return
+    console.print()
+    console.print("  [bold]Failed tests[/bold]")
+    table = Table(box=None, padding=(0, 2), show_header=False)
+    table.add_column("Test ID", style="cyan")
+    table.add_column("Reason", style="dim")
+    table.add_column("Score", justify="right")
+    
+    for t in failed:
+        reason = "unknown"
+        if t.status.value == "error":
+            reason = "execution error"
+        elif t.status.value == "timeout":
+            reason = "timed out"
+        elif t.status.value == "budget_exceeded":
+            reason = "budget exceeded"
+        elif t.grades:
+            for g in t.grades:
+                if not g.passed:
+                    reason = g.reason
+                    break
+        table.add_row(f"  {t.case_id}", reason, f"score {t.score:.2f}")
+    
+    console.print(table)
+
