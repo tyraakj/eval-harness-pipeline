@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from glyph.db.orm_models import Run, Trial
-from glyph.db.session import get_session
+from glyph.db.orm_models import Run
 
 
 class ListRunsQuery:

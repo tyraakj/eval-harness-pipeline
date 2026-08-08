@@ -31,7 +31,7 @@ from glyph.core.domain_models import (
     TrialStatus,
 )
 from glyph.exporters.exporting import ExportDispatcher
-from glyph.monitoring.pipeline_tracer import PipelineTracer, PipelineStage
+from glyph.monitoring.pipeline_tracer import PipelineStage, PipelineTracer
 from glyph.monitoring.telemetry import EvaluationTelemetry
 from glyph.security.contracts import (
     EvaluationExporter,
@@ -427,25 +427,26 @@ class EvaluationRunner:
                 sandbox_cleanup = await self._cleanup_sandbox(sandbox, sandbox_cleanup)
             duration_ms = int((time.monotonic() - monotonic_start) * 1000)
             input_hash = content_hash(canonical_json(case.input))
-            return TrialRecord(
-                trial_id=trial_id,
-                run_id=run_id,
-                case_id=case.id,
-                repetition_index=repetition_index,
-                suite=case.suite,
-                status=status,
-                error_type=error_type,
-                error_message=error_message,
-                started_at=started_at,
-                duration_ms=duration_ms,
-                score=score,
-                grades=grades,
-                sandbox=sandbox,
-                sandbox_cleanup=sandbox_cleanup,
-                provenance=provenance,
-                tracked_metrics=tracked_metrics,
-                input_hash=input_hash,
-            )
+        
+        return TrialRecord(
+            trial_id=trial_id,
+            run_id=run_id,
+            case_id=case.id,
+            repetition_index=repetition_index,
+            suite=case.suite,
+            status=status,
+            error_type=error_type,
+            error_message=error_message,
+            started_at=started_at,
+            duration_ms=duration_ms,
+            score=score,
+            grades=grades,
+            sandbox=sandbox,
+            sandbox_cleanup=sandbox_cleanup,
+            provenance=provenance,
+            tracked_metrics=tracked_metrics,
+            input_hash=input_hash,
+        )
 
     async def _cleanup_sandbox(
         self, sandbox: SandboxSession | None, cleanup: SandboxCleanup
@@ -664,6 +665,6 @@ class EvaluationRunner:
     @staticmethod
     def _harness_version() -> str:
         try:
-            return importlib.metadata.version("langgraph-eval-harness")
+            return importlib.metadata.version("glyph")
         except importlib.metadata.PackageNotFoundError:
             return "development"

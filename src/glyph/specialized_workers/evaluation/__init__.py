@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from glyph.evaluation.definition import EvaluationDefinition
-from glyph.evaluation.human import (
+from glyph.specialized_workers.evaluation.human_evaluation import (
     HumanAdjudication,
     HumanEvaluationLedger,
     HumanGrade,
@@ -18,22 +17,24 @@ from glyph.evaluation.human import (
     HumanReviewSummary,
     HumanReviewTask,
 )
-from glyph.evaluation.online import (
+from glyph.core.domain_models import (
     OnlineEvaluationDecision,
     OnlineEvaluationPolicy,
     OnlineEvaluationStatus,
-    OnlineEvaluator,
 )
-from glyph.evaluation.optimizers import (
+from glyph.specialized_workers.evaluation.online_evaluation import OnlineEvaluator
+from glyph.specialized_workers.evaluation.optimizers import (
     OptimizationCandidate,
     OptimizationResult,
     Optimizer,
 )
+from glyph.specialized_workers.evaluation.runner import EvaluationRunner
+from glyph.specialized_workers.evaluation.task_definitions import EvaluationDefinition
 from glyph.specialized_workers.gates.release_gate import ReleaseGate
-from glyph.evaluation.runner import EvaluationRunner
 
 __all__ = [
     "EvaluationDefinition",
+    "EvaluationRunner",
     "HumanAdjudication",
     "HumanEvaluationLedger",
     "HumanGrade",
@@ -55,5 +56,4 @@ __all__ = [
     "OptimizationResult",
     "Optimizer",
     "ReleaseGate",
-    "EvaluationRunner",
 ]
