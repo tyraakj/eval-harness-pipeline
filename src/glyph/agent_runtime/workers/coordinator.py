@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from typing import Any
 
-from glyph.agent_runtime.ai_analysis import AIAnalyzer, AIAnalysisRequest, HybridAIAnalyzer, NoOpAIAnalyzer
+from glyph.agent_runtime.ai_analysis import (
+    AIAnalysisRequest,
+    AIAnalyzer,
+    HybridAIAnalyzer,
+)
 from glyph.agent_runtime.worker_models import (
     ToolExpertise,
     WorkerDomain,

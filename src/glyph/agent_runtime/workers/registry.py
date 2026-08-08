@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
-
 from glyph.agent_runtime.worker_models import (
     NodeAnalysisCriteria,
     ToolExpertise,
@@ -14,6 +12,7 @@ from glyph.agent_runtime.worker_models import (
     WorkerDomain,
     WorkerExpertise,
 )
+from pydantic import BaseModel
 
 
 class WorkerDefinition(BaseModel):

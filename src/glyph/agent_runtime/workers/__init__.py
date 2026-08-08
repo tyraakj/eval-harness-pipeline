@@ -32,6 +32,7 @@ from glyph.agent_runtime.langgraph_integration import (
     LangGraphTracer,
     LangGraphWorkerAdapter,
 )
+from glyph.agent_runtime.registry import WorkerDefinition, WorkerRegistry
 from glyph.agent_runtime.worker_models import (
     NodeAnalysisCriteria,
     ToolExpertise,
@@ -42,7 +43,6 @@ from glyph.agent_runtime.worker_models import (
     WorkerRouting,
     WorkerTask,
 )
-from glyph.agent_runtime.registry import WorkerDefinition, WorkerRegistry
 
 __all__ = [
     # Core models
