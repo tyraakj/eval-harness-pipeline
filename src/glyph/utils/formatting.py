@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from rich import box
 from rich.console import Console
-from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
@@ -19,8 +18,8 @@ from rich.table import Table
 from rich.theme import Theme
 
 if TYPE_CHECKING:
-    from glyph.grading.comparison import Comparison
     from glyph.core.domain_models import EvalCase, ReleaseDecision, RunSummary, TrialRecord
+    from glyph.grading.comparison import Comparison
 
 
 # â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -266,7 +265,6 @@ Average Score: {summary.average_score:.2f}
 def format_run_summary(summary: RunSummary, output_format: str = OutputFormat.RICH) -> None:
     """Format and display a run summary."""
     if output_format == OutputFormat.JSON:
-        import json
         console.print(summary.model_dump_json(indent=2))
         return
 
@@ -701,7 +699,7 @@ def _format_trial_detail_rich(record: TrialRecord) -> None:
 
     if record.sandbox is not None:
         _kv("sandbox", f"{record.sandbox.provider} ({record.sandbox.isolation})")
-        cleanup = f"[glyph.success]{_CHECK}[/glyph.success]" if record.sandbox_cleanup.succeeded else f"[glyph.warning]not verified[/glyph.warning]"
+        cleanup = f"[glyph.success]{_CHECK}[/glyph.success]" if record.sandbox_cleanup.succeeded else "[glyph.warning]not verified[/glyph.warning]"
         _kv("cleanup", cleanup)
 
     # Grades

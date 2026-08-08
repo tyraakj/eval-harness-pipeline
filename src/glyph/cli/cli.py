@@ -14,21 +14,19 @@ from rich.table import Table
 
 from glyph.core.domain_models import RunSummary, TrialRecord
 from glyph.evaluation.definition import EvaluationDefinition
-from glyph.specialized_workers.gates.release_gate import ReleaseGate
 from glyph.evaluation.runner import EvaluationRunner
 from glyph.generation import (
     CaseGenerator,
     CaseReview,
     GenerationSpec,
-    ReviewerRole,
     append_review,
     generate_draft,
     load_draft,
     promote_draft,
-    promote_draft_simple,
 )
 from glyph.grading.comparison import compare as compare_runs
 from glyph.monitoring.observability import configure_otel_from_env
+from glyph.specialized_workers.gates.release_gate import ReleaseGate
 from glyph.utils.datasets import load_jsonl
 from glyph.utils.formatting import (
     OutputFormat,
@@ -336,6 +334,7 @@ def doctor_command() -> None:
     """Check local CLI, artifact, and optional service configuration."""
     import os
     import sys
+
     from rich import box as _box
 
     console.print()
@@ -716,6 +715,7 @@ def validate_dataset(
 ) -> None:
     """Validate a dataset and show its suite and tag composition before a run."""
     from collections import Counter
+
     from rich import box as _box
 
     cases = load_jsonl(dataset)
@@ -757,8 +757,8 @@ def validate_dataset(
 def history_command(limit: int = 50) -> None:
     """View recent evaluation runs."""
     try:
-        from glyph.services.run_service import RunService
         from glyph.db.session import init_db
+        from glyph.services.run_service import RunService
     except ImportError:
         console.print("[red]Database dependencies not installed[/red]")
         console.print("Install with: uv sync --extra web")

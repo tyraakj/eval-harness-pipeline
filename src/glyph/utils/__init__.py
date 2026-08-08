@@ -3,6 +3,15 @@
 from __future__ import annotations
 
 from glyph.utils.artifacts import JsonlArtifactWriter
+from glyph.utils.common import (
+    canonical_json,
+    create_singleton,
+    ensure_dir,
+    get_timestamp,
+    hash_dict,
+    sanitize,
+    sanitize_text,
+)
 from glyph.utils.datasets import Dataset, load_dataset, load_jsonl
 from glyph.utils.formatting import (
     format_cli_output,
@@ -17,15 +26,6 @@ from glyph.utils.prompts import (
     content_hash,
     get_prompt_hash,
     render_prompt,
-)
-from glyph.utils.common import (
-    canonical_json,
-    create_singleton,
-    ensure_dir,
-    get_timestamp,
-    hash_dict,
-    sanitize,
-    sanitize_text,
 )
 
 __all__ = [
