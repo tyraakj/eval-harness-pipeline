@@ -9,13 +9,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from glyph.specialized_workers.artifact import (
-    ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
     ModelManifest,
     UsageMetrics,
 )
-from glyph.specialized_workers.base import EvaluationEvidence
 
 logger = logging.getLogger(__name__)
 

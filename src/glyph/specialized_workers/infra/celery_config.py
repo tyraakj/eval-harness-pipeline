@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from celery import Celery
-from celery.schedules import crontab
 
 # Create Celery app
 celery_app = Celery("glyph_evaluation")

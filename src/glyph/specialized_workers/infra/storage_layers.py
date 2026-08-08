@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-
-from pydantic import BaseModel, Field
 
 from glyph.specialized_workers.artifact import (
     EvaluationArtifact,
@@ -310,7 +307,7 @@ class InMemoryRedisStorage(RedisStorage):
         return task_id
     
     def dequeue_task(self, queue_name: str) -> dict[str, Any] | None:
-        if queue_name in self._queues and self._queues[queue_name]:
+        if self._queues.get(queue_name):
             task = self._queues[queue_name].pop(0)
             logger.info(f"Dequeued task {task.get('task_id')} from queue {queue_name}")
             return task
