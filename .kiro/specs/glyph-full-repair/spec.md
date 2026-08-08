@@ -2905,3 +2905,420 @@ No HTML file, no drawer component change, no separate maintenance.
 
 
 
+
+---
+
+## Part 12 — `glyph datasets convert`: bring your own dataset
+
+**Core principle: zero LLM cost. This is pure format translation.**
+
+Most teams already have evaluation material in some form — a spreadsheet of
+test cases, a pytest parametrize list, an OpenAI evals file, a CSV of
+question/answer pairs someone put together in Excel, production failure
+traces. None of it is in Glyph's JSONL format. The converter closes that gap
+without asking the user to generate anything or spend tokens.
+
+---
+
+### 12a — What Glyph's JSONL format actually requires
+
+From reading the existing datasets, the minimum viable case is:
+
+```json
+{
+  "id": "unique-stable-string",
+  "input": {"any": "key-value structure"},
+  "expected": {"any": "key-value structure"}
+}
+```
+
+Everything else is optional:
+- `suite` — defaults to `"capability"` if absent
+- `tags` — defaults to `[]`
+- `metadata` — defaults to `{}`
+- `graders` — defaults to `[]` (uses suite defaults)
+- `tracked_metrics` — defaults to `[]`
+
+The converter only needs to map source data to these five fields. It does not
+need to understand what the data means.
+
+---
+
+### 12b — Supported source formats
+
+**Format 1: CSV / Excel**
+
+The most common format from non-engineers. A spreadsheet with columns.
+
+```
+input_question, expected_answer, category, tags
+"What is the capital of France?", "Paris", "geography", "smoke"
+"How do I reset my password?", "Visit /account/reset", "support", "auth"
+```
+
+Column mapping rules (applied in order, first match wins):
+- `input`: any column named `input`, `question`, `prompt`, `request`, `query`, `user_message`
+- `expected`: any column named `expected`, `answer`, `output`, `response`, `correct_answer`
+- `id`: any column named `id`, `case_id`, `test_id`. If absent: auto-generated from `slugify(input[:50])`
+- `suite`: any column named `suite`, `category`, `type`. If absent: `"capability"`
+- `tags`: any column named `tags`, `label`, `labels`. Comma-separated string split into list.
+- All remaining columns → `metadata`
+
+If the CSV has a multi-column input (e.g. `question` + `context`), both are
+mapped into the `input` dict:
+```json
+{"input": {"question": "...", "context": "..."}}
+```
+
+**Format 2: JSON array**
+
+Common from developers who already have tests in JSON.
+
+```json
+[
+  {"question": "What is the capital of France?", "answer": "Paris"},
+  {"prompt": "Reset my password", "expected_output": "Visit /account/reset"}
+]
+```
+
+Same column-mapping rules as CSV applied to JSON keys. Each object in the
+array becomes one case.
+
+**Format 3: OpenAI evals JSONL**
+
+OpenAI's evaluation format. Two variants:
+
+Variant A (completion format):
+```json
+{"input": [{"role": "user", "content": "What is the capital of France?"}], "ideal": "Paris"}
+```
+
+Variant B (match format):
+```json
+{"prompt": "What is the capital of France?", "completion": "Paris"}
+```
+
+Mapping:
+- `input.messages` or `prompt` → Glyph `input`
+- `ideal` or `completion` → Glyph `expected.contains`
+- `task` or `eval_name` → Glyph `tags`
+
+**Format 4: LangSmith export**
+
+LangSmith exports dataset examples as JSONL:
+```json
+{"inputs": {"input": "..."}, "outputs": {"output": "..."}, "id": "...", "created_at": "..."}
+```
+
+Mapping:
+- `inputs` → Glyph `input`
+- `outputs` → Glyph `expected`
+- `id` → Glyph `id` (kept as-is)
+- `created_at` → Glyph `metadata.imported_at`
+
+**Format 5: pytest parametrize**
+
+Python files using `@pytest.mark.parametrize`. Common in teams that already
+have unit tests for their agent.
+
+```python
+@pytest.mark.parametrize("question,expected", [
+    ("What is the capital of France?", "Paris"),
+    ("What is 2+2?", "4"),
+])
+def test_agent_answers(question, expected):
+    ...
+```
+
+The converter uses Python's `ast` module to parse the file — no execution,
+no imports, no sandbox needed. It extracts the argument names and values from
+`pytest.mark.parametrize` decorators.
+
+Mapping:
+- First argument → Glyph `input`
+- Second argument → Glyph `expected.contains` (if string) or `expected` (if dict)
+- Function name → Glyph `tags`
+- File name → Glyph `metadata.source_file`
+
+**Format 6: Production failure traces**
+
+The most valuable source. A JSONL file of real failures captured from
+production or staging. Shape is flexible — the converter looks for:
+- Any field named `input`, `request`, `query`, `user_message` → Glyph `input`
+- Any field named `error`, `failure_reason`, `actual_output` → Glyph `metadata.failure`
+- Any field named `expected`, `correct` → Glyph `expected`
+- Timestamp fields → Glyph `metadata.captured_at`
+
+Cases imported from failure traces are automatically tagged `["regression",
+"imported-failure"]` and assigned `suite: "regression"` unless the source
+specifies otherwise.
+
+If a trace has no `expected` field (common — production failures don't come
+with the correct answer), the case is imported with `expected: {}` and
+`metadata.requires_human_expected: true`. These cases appear in the review
+queue under "Needs expected answer" and cannot be promoted until filled in.
+
+**Format 7: Plain text / one question per line**
+
+The simplest possible input. A text file where each line is a test input.
+
+```
+What is the capital of France?
+How do I reset my password?
+What happens if I enter the wrong password 5 times?
+```
+
+Each line becomes one case with `input: {"question": line}` and
+`expected: {}` with `metadata.requires_human_expected: true`. Useful
+for quickly converting a list someone wrote in Notion or a ticket.
+
+---
+
+### 12c — The conversion pipeline (all deterministic, zero LLM)
+
+```
+Source file
+    │
+    ▼
+Format detection
+    - Try frontmatter → YAML/JSON format
+    - Check extension: .csv, .xlsx, .json, .jsonl, .py, .txt
+    - Check first line structure for JSONL
+    │
+    ▼
+Parse to intermediate rows
+    - Each source record → dict of raw key-value pairs
+    │
+    ▼
+Column mapping
+    - Apply format-specific rules
+    - Fall back to fuzzy header matching if exact match fails
+    │
+    ▼
+ID generation
+    - Use source ID if present and unique
+    - Generate: {filename_slug}-{row_index:04d} if absent
+    - Detect and fix duplicates: append -2, -3, etc.
+    │
+    ▼
+Validation
+    - Every case must have non-empty input
+    - Warn (not error) on empty expected
+    - Warn on suspiciously short inputs (< 5 chars)
+    │
+    ▼
+Sanitization
+    - Secret scan on all field values (18 patterns from Part 9)
+    - PII scan (PIIScanner)
+    - Cases with detected secrets/PII: quarantined to a separate
+      file with a warning. Not written to the output dataset.
+    │
+    ▼
+Write Glyph JSONL
+    - One case per line
+    - All fields present (defaults applied)
+    - Sorted by id for stable diffs
+```
+
+---
+
+### 12d — Fuzzy header matching
+
+When the column names do not exactly match the expected names, the converter
+applies fuzzy matching before giving up:
+
+```python
+INPUT_ALIASES = {
+    "input", "question", "prompt", "request", "query",
+    "user_message", "user_input", "q", "utterance",
+    "message", "text", "content", "instruction",
+}
+
+EXPECTED_ALIASES = {
+    "expected", "answer", "output", "response", "correct_answer",
+    "ground_truth", "label", "target", "ideal", "completion",
+    "expected_output", "expected_answer", "correct", "a",
+}
+```
+
+If a column name is not in the alias set but has a Levenshtein distance
+of 1-2 from a known alias (e.g. `"asnwer"` → `"answer"`), the converter
+uses it and reports the fuzzy match to the user:
+
+```
+⚠ Column "asnwer" matched to "expected" (fuzzy match — please verify)
+```
+
+The user sees every fuzzy match before the file is written.
+
+---
+
+### 12e — CLI command
+
+```
+glyph datasets convert --from SOURCE [--to OUTPUT] [--format FORMAT] [--suite SUITE]
+```
+
+**Arguments:**
+- `--from` — source file path. Required.
+- `--to` — output JSONL path. Default: `datasets/{source_stem}-converted.jsonl`
+- `--format` — force format detection: `csv`, `json`, `openai`, `langsmith`, `pytest`, `traces`, `text`. Default: auto-detect.
+- `--suite` — override suite for all cases: `capability`, `regression`, `security`. Default: derived per-case or `capability`.
+- `--id-prefix` — prefix for auto-generated IDs. Default: source filename stem.
+- `--dry-run` — show what would be converted without writing anything.
+
+**Output (plain English throughout):**
+
+```
+glyph datasets convert --from tests/agent_tests.csv
+
+Detected format: CSV (12 columns)
+
+Column mapping:
+  "question"        → input.question    ✓
+  "expected_answer" → expected.contains ✓  (fuzzy match from "expected_answer")
+  "category"        → suite             ✓
+  "priority"        → metadata.priority ✓  (unmapped — going to metadata)
+  "owner"           → metadata.owner    ✓  (unmapped — going to metadata)
+
+Converting 47 rows...
+
+  ✓  45 cases converted
+  ⚠   2 cases quarantined (secrets detected)
+        row 23: "api_key" column contains what looks like an API key
+        row 31: "notes" column contains an email address
+        → review: datasets/drafts/agent_tests-quarantined.jsonl
+
+  ✓  No duplicate IDs
+  ⚠   8 cases have no expected answer
+        → these will appear in your review queue as "needs expected answer"
+
+Written: datasets/agent_tests-converted.jsonl (45 cases)
+
+Next steps:
+  Review the 8 cases with missing expected answers:
+    glyph generation review --draft datasets/agent_tests-converted.jsonl
+
+  Validate the full dataset:
+    glyph datasets validate --dataset datasets/agent_tests-converted.jsonl
+
+  Run your first evaluation:
+    glyph run --factory my_app.eval:create_evaluation \
+              --dataset datasets/agent_tests-converted.jsonl
+```
+
+---
+
+### 12f — Web UI: `/app/datasets/import`
+
+Page title: "Import test cases".
+Sub-heading: "Turn your existing tests, spreadsheets, or failure logs into
+a Glyph test library."
+
+**Upload area:**
+Large drag-and-drop zone. Accepts: `.csv`, `.xlsx`, `.json`, `.jsonl`, `.py`, `.txt`.
+Label: "Drop your file here, or click to browse."
+Helper text below: "We support CSV, JSON, pytest files, OpenAI evals,
+LangSmith exports, and plain text. No special format required."
+
+**After upload — column mapping preview:**
+Show a table: detected column → mapped field → sample value from first row.
+Each row has an "override" dropdown so the user can correct wrong mappings.
+Fuzzy matches are highlighted yellow with a "please verify" label.
+
+**Summary before conversion:**
+```
+Ready to import
+
+  47 cases detected
+   2 need review (possible sensitive data)
+   8 need expected answers
+  37 ready to use immediately
+
+  [Import 47 cases]   [Cancel]
+```
+
+**After conversion:**
+Redirect to `/app/datasets/[name]` showing the new library.
+Cases that need expected answers are highlighted in the table with a
+"fill in expected answer" button on each row — inline edit, no separate page.
+
+---
+
+### 12g — API endpoint
+
+```
+POST /api/datasets/convert
+     Body: multipart/form-data
+       file: the source file
+       format: optional format hint
+       suite: optional suite override
+       id_prefix: optional ID prefix
+     
+     Returns:
+     {
+       "cases_converted": 45,
+       "cases_quarantined": 2,
+       "cases_missing_expected": 8,
+       "column_mapping": {...},
+       "fuzzy_matches": [...],
+       "quarantine_file": "...",
+       "output_file": "datasets/agent_tests-converted.jsonl"
+     }
+
+     The response is a preview — the file is NOT written yet.
+     Call POST /api/datasets/convert/confirm with the output_file
+     path to commit the conversion.
+```
+
+Two-step API (preview then confirm) so the web UI can show the mapping
+and let the user correct it before anything is written to disk.
+
+---
+
+### 12h — New file
+
+**`src/glyph/utils/converters.py`**
+
+Contains:
+- `detect_format(path: Path) -> SourceFormat`
+- `parse_source(path: Path, format: SourceFormat) -> list[dict]`
+- `map_columns(rows: list[dict], overrides: dict | None) -> list[EvalCase]`
+- `generate_id(row: dict, prefix: str, index: int) -> str`
+- `ConversionResult` dataclass
+
+No new dependencies for CSV/JSON/JSONL/text formats — stdlib only (`csv`,
+`json`, `ast`). For `.xlsx` files, `openpyxl` is required — already a common
+dependency, added to `[project.optional-dependencies] generation`.
+
+---
+
+### 12i — Files changed
+
+| New files | Modified files |
+|---|---|
+| `src/glyph/utils/converters.py` | `src/glyph/cli/cli.py` (add `datasets convert` command) |
+| `web/src/app/app/datasets/import/page.tsx` | `src/glyph/api/routes/datasets.py` (add convert + confirm endpoints) |
+| `web/src/app/app/datasets/import/page.module.css` | `src/glyph/schemas/datasets.py` (add ConversionPreviewResponse) |
+| — | `pyproject.toml` (add `openpyxl` to generation extras) |
+
+---
+
+### 12j — Acceptance criteria
+
+- `glyph datasets convert --from datasets/example.jsonl --dry-run` reports
+  2 cases detected with no conversion errors (round-trip of an existing file).
+- `glyph datasets convert --from a_csv_with_no_id_column.csv` generates
+  stable IDs using the filename prefix and row index.
+- A CSV with a column containing `sk-ant-...` produces a quarantined file
+  and does not write that case to the output dataset.
+- A file with unrecognised column names triggers fuzzy matching and reports
+  the match to the user before writing anything.
+- A pytest file with `@pytest.mark.parametrize` produces one case per
+  parameter tuple.
+- `POST /api/datasets/convert` returns a preview without writing to disk.
+- `POST /api/datasets/convert/confirm` writes the file and returns the
+  new dataset item.
+- The web import page shows the column mapping table before confirming.
+- Cases with no `expected` field are flagged `requires_human_expected: true`
+  and appear highlighted in the dataset viewer.

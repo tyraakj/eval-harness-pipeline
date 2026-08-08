@@ -1,143 +1,96 @@
 # Glyph
 
-**A local-first evaluation and release-gating harness for AI applications and agents with built-in offline isolation and pipeline tracing.**
+**Know exactly what changed in your agent, why, and whether it is safe to ship.**
 
-Glyph runs a versioned evaluation suite against an application in isolated sandboxes, captures bounded
-observable evidence, applies deterministic or calibrated grades, traces the entire evaluation pipeline,
-and compares a candidate with a pinned baseline. It is designed to make regressions explainable
-and CI decisions reproducible without making a hosted observability platform the
-source of truth.
+- **Records what your agent did** — every tool call, output, and timing measurement, permanently, for each version you run.
+- **Change your evaluation without re-running your agent** — when Glyph runs your agent, it records the complete output: every tool call with its arguments and return value, the final response, timing, and token usage. That record is written to a JSONL file on your disk and, if you are using the web UI, also to your own database. Graders never call your agent — they read that record. Adding a new grader, tightening a threshold, or running a security check means running a different function against the same record. No API call, no model invocation, no tokens spent. The only thing that costs tokens is the agent execution itself, which happens once per agent version. Everything after — grading, re-grading, security checks, comparisons, release decisions — is local computation on the record you already have.
+- **Case-level regressions, not just scores** — see exactly which tests got worse, with the specific reason each one failed. Not "pass rate dropped 4%" — "these 3 tests regressed, here is what the agent did in each one."
+- **Security built into the run** — deterministic checks for prompt injection, credential exposure, excessive actions, SSRF, path traversal, and jailbreak attempts run on the same recording your graders already used. No separate tool, no extra API calls, covers [OWASP LLM Top 10 (2025)](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+- **One reproducible decision** — every result file records the dataset hash, target version, model ID, and grader versions. Two engineers running the same file get the same release decision. No drift, no "it passed on my machine."
+- **Your data, your files, your server** — the JSONL result files live on your disk. The web UI runs on your own machine via `glyph serve` and talks to a SQLite database by default — no account, no cloud service, nothing leaving your environment. If you want a team setup, you point it at your own Postgres and Redis. Glyph does not operate any server you connect to. There is no `app.glyph.io`.
+- **Works without instrumenting your code** — start from a CSV, a pytest file, or a production failure log. You do not need to add an SDK to your agent to get your first evaluation running.
+- **Fits alongside LangSmith and Braintrust, not instead of them** — LangSmith and Braintrust are observability platforms: production monitoring, prompt playgrounds, annotation queues. Glyph is the evaluation and release-gating layer that runs locally and owns the release decision. Use them together: Glyph for the verdict, LangSmith for the trace explorer.
 
-> **Current scope:** Glyph includes a seed-to-reviewed-dataset workflow, built-in
-> offline sandbox providers, and internal pipeline tracing. It ships no hosted LLM generator,
-> Docker/Kubernetes sandbox provider, or completed production web console.
-> See [Product direction](#product-direction).
+---
 
-## What works today
+## Before you start
 
-- **Offline evaluation with proper isolation** - Filesystem and network sandbox providers for true offline evaluation without external dependencies
-- **Internal pipeline tracing** - Built-in tracing of the entire evaluation workflow (dataset load, sandbox provision, target execute, outcome collect, grading, sandbox destroy) with automatic trace file generation
-- **Specialized workers for domain-specific evaluation** - Domain-specific workers (code execution, web navigation, security, data analysis, API integration) with deterministic routing and optional AI-powered analysis for complex evaluations
-- **LangGraph integration** - Deep tracing and analysis of LangGraph node/edge executions, tool calls, and metadata patterns
-- **Hybrid AI approach** - Deterministic core for reliability with optional AI enhancement for complex analysis, cost-aware routing
-- Versioned JSONL evaluation cases with stable IDs, tags, metadata, and
-  capability, regression, and security suites.
-- LangGraph target adapter plus extensible target, grader, outcome-collector,
-  exporter, and sandbox contracts.
-- Deterministic graders for exact/content matching, tool policy, outcome state,
-  trajectory, loop, retrieval, and several heuristic checks; optional
-  cost-bounded model judges.
-- Per-trial time, tool-call, output, evidence, artifact, concurrency, and
-  judge-cost budgets.
-- Local JSONL trial artifacts with hashes and provenance for datasets, targets,
-  prompts, models, and grader versions.
-- Candidate-vs-baseline comparison and release gates for CI.
-- Optional OpenTelemetry, LangSmith export, human-review ledger, DSPy candidate
-  optimization, FastAPI API, Redis/Celery worker, and SQLAlchemy persistence.
-
-## The evaluation loop
-
-```mermaid
-flowchart LR
-  A[Versioned cases and prompt release] --> B[Trial runner]
-  B --> C[Sandbox provider]
-  C --> D[Application or agent target]
-  D --> E[Outcome collectors and graders]
-  E --> F[Immutable JSONL evidence]
-  F --> G[Baseline comparison and release policy]
-  F -. optional sanitized export .-> H[LangSmith / OTEL]
-```
-
-The JSONL artifact is canonical. Hosted exports are useful for diagnosis and
-collaboration, but outages must not change a local grade or release decision.
-
-## Quick start
-
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the
-native `glyph` launcher once from a clone of this repository:
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv tool install --editable . --force
-glyph run \
-  --factory examples.simple_graph:create_evaluation \
-  --dataset datasets/example.jsonl \
-  --output artifacts/baseline.jsonl
 ```
 
-`glyph` is then available from PowerShell, Command Prompt, Windows Terminal,
-Git Bash, macOS Terminal, and Linux shells. If a newly opened terminal cannot
-find it, add the directory printed by `uv tool dir --bin` to your `PATH`.
+`glyph` is now available in your terminal. Run `glyph doctor` to confirm everything is set up.
 
-To verify the live terminal feed without an API key, run the intentionally
-slow local demo. It completes one case per second and prints start/result
-events as they occur:
+---
+
+## Step 1 — Get your test cases
+
+You need a test library before you can run anything. The fastest path depends on what you already have.
+
+**Have production failures or a staging log?**
+These become regression tests immediately — no generation needed.
 
 ```bash
-glyph run \
-  --factory examples.live_demo:create_evaluation \
-  --dataset datasets/live-demo.jsonl \
-  --output artifacts/live-demo.jsonl \
-  --overwrite
+glyph datasets convert --from production-failures.jsonl --suite regression
 ```
 
-The included example is intentionally deterministic and explicitly opts out of
-isolation. Any target that uses tools, files, browsers, a database, network, or
-other side effects should provide a real `SandboxProvider` and declare required
-capabilities.
-
-Run a candidate and compare it with the baseline:
+**Have tests in CSV, JSON, a pytest file, or a LangSmith export?**
 
 ```bash
-glyph run \
-  --factory my_app.evaluation:create_evaluation \
-  --dataset datasets/support-v1.jsonl \
-  --output artifacts/candidate.jsonl
-
-glyph compare \
-  --candidate artifacts/candidate.jsonl \
-  --baseline artifacts/baseline.jsonl \
-  --max-regressions 0 \
-  --minimum-delta 0
-
-glyph release \
-  --deterministic artifacts/candidate.jsonl \
-  --baseline artifacts/baseline.jsonl \
-  --policy staging
+glyph datasets convert --from tests/agent_tests.csv
+glyph datasets convert --from tests/test_agent.py
 ```
 
-The CLI uses one Rich terminal experience across Windows, macOS, Linux, and
-Git Bash. Use `--format json` for CI or automation, `--format json-stream` for
-event streaming (Pi Agent-style), `--format rpc` for live pipe integration,
-and `--format pr-comment` when publishing an evaluation summary to a pull request.
+Glyph detects the format, maps the columns, flags anything that looks like a
+secret, and shows you exactly what it mapped before writing anything.
 
-## CLI workflow
+Supported formats: CSV, Excel, JSON arrays, OpenAI evals JSONL, LangSmith exports,
+pytest `parametrize` files, and plain text.
 
-Run `glyph guide` at any time for the same lifecycle in your terminal.
+**Starting from scratch?**
+Write cases by hand — each one is a single line of JSON:
 
-| Goal | Command |
-| --- | --- |
-| Create a starter project | `glyph init my-evaluation` |
-| Check local readiness | `glyph doctor` |
-| Validate cases before spending model budget | `glyph datasets validate --dataset datasets/example.jsonl` |
-| Generate and approve synthetic drafts | `glyph generation --help` |
-| Execute a version | `glyph run --factory ... --dataset ...` |
-| Execute with JSON stream | `glyph run --factory ... --dataset ... --format json-stream --stream` |
-| Execute with RPC mode | `glyph run --factory ... --dataset ... --format rpc --stream` |
-| Inspect a completed run | `glyph artifacts summary --artifact artifacts/results.jsonl` |
-| Inspect one case | `glyph artifacts trial --artifact artifacts/results.jsonl --case-id case-001` |
-| Compare a candidate | `glyph compare --candidate ... --baseline ...` |
-| Gate a release | `glyph release --deterministic ... --baseline ...` |
+```json
+{"id": "password-reset-001", "input": {"question": "How do I reset my password?"}, "expected": {"contains": ["reset link"]}, "suite": "regression", "tags": ["auth"]}
+```
 
-Every command supports `--help` (or `-h`); `glyph --version` prints the
-installed CLI version.
+See `datasets/example.jsonl` for more examples and the full set of supported fields.
 
-## Define an evaluation
+**No tests at all?**
+Generate a starting set from a seed phrase using your own LLM API key:
 
-Keep application wiring in a Python factory and store the canonical test cases
-as reviewable JSONL. A minimal definition looks like this:
+```bash
+glyph generation create \
+  --seed "password-reset customer-support agent" \
+  --generator examples.synthetic_generator:create_generator \
+  --output datasets/drafts/password-reset-v1.jsonl \
+  --count 100
+
+# Review and approve each generated case
+glyph generation review \
+  --draft datasets/drafts/password-reset-v1.jsonl \
+  --case-id generated-001 --reviewer alice --decision approved
+
+# Promote approved cases to a real test library
+glyph generation promote \
+  --draft datasets/drafts/password-reset-v1.jsonl \
+  --output datasets/password-reset-v1.jsonl
+```
+
+Every generated case requires a human review and approval before it can be used.
+Glyph does not pay for generation — it uses your configured LLM provider.
+
+---
+
+## Step 2 — Define how your agent is tested
+
+Write a Python factory function that connects Glyph to your agent. Keep it in your
+repo alongside your agent code.
 
 ```python
-from glyph.core.models import Budget, EvaluationSuite, GraderPolicy, SandboxRequirements
+from glyph.core.domain_models import Budget, SandboxRequirements
 from glyph.evaluation.definition import EvaluationDefinition
 from glyph.grading.graders import ContainsAllGrader, ToolPolicyGrader
 from glyph.targets.langgraph_target import LangGraphTarget
@@ -152,151 +105,269 @@ def create_evaluation() -> EvaluationDefinition:
             input_builder=lambda case: {"messages": [("user", case.input["question"])]},
             output_builder=lambda state: {"answer": state["messages"][-1].content},
         ),
-        suite=EvaluationSuite(
-            id="support-quality",
-            version="1.0.0",
-            default_graders=frozenset({"contains_all", "tool_policy"}),
-        ),
         graders=(
             ContainsAllGrader(),
             ToolPolicyGrader(frozenset({"search_docs", "lookup_order"})),
         ),
         budget=Budget(timeout_seconds=60, max_tool_calls=8, max_concurrency=4),
-        grader_policy=GraderPolicy(
-            weights={"contains_all": 0.7, "tool_policy": 0.3},
-            required=frozenset({"tool_policy"}),
-            pass_threshold=0.8,
-        ),
         sandbox_provider=build_evaluation_sandbox(),
         sandbox_requirements=SandboxRequirements(
-            capabilities=frozenset({"filesystem", "network"})
+            capabilities=frozenset({"filesystem"})
         ),
     )
 ```
 
-Use a stable case ID for the same user scenario across releases. A case can
-choose its suite, tags, metadata, graders, and tracked metrics:
+The `graders` tell Glyph what a passing response looks like. The `budget` sets the
+limits per test. The `sandbox_provider` gives each test a clean, isolated environment.
 
-```json
-{"id":"support-password-reset-001","input":{"question":"How do I reset my password?"},"expected":{"answer":"reset link"},"suite":"regression","tags":["support","auth","critical"],"metadata":{"max_latency_ms":2000,"requirement_id":"SUP-42"}}
-```
-
-## Safety and evidence
-
-Glyph does not create isolation by itself. Its runner validates a provider,
-provisions a session per trial, passes that session to the target and outcome
-collectors, and performs bounded shielded cleanup. Implement a provider for
-your disposable container, database, browser, filesystem, and network policy.
-Never point an evaluation at production credentials or mutable production data.
-
-Artifacts capture sanitized observable output, tool/retrieval events, grades,
-metrics, and provenance. Raw prompts, messages, tool payloads, and retrieved
-text are opt-in and allowlisted; hidden chain-of-thought is never persisted.
-
-## Optional services
-
-Install extras only for capabilities you use:
+Before running, check that everything wires up correctly:
 
 ```bash
-uv sync --extra web --extra otel --extra langsmith
+glyph run --check \
+  --factory my_app.evaluation:create_evaluation \
+  --dataset datasets/support-v1.jsonl
 ```
 
-The FastAPI and Celery path is an asynchronous execution integration:
+This validates your setup without running any tests.
+
+---
+
+## Step 3 — Run your tests
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d
+glyph run \
+  --factory my_app.evaluation:create_evaluation \
+  --dataset datasets/support-v1.jsonl \
+  --output artifacts/candidate.jsonl
+```
+
+You will see a live progress bar as tests complete. When done, Glyph prints a summary
+and lists any tests that failed with the specific reason each one failed — no need to
+dig through a separate log file.
+
+Save the first passing run as your baseline:
+
+```bash
+cp artifacts/candidate.jsonl artifacts/baseline.jsonl
+```
+
+---
+
+## Step 4 — See what changed
+
+After making changes to your agent and running again:
+
+```bash
+glyph compare \
+  --candidate artifacts/candidate.jsonl \
+  --baseline  artifacts/baseline.jsonl
+```
+
+Output shows:
+- Which tests got better
+- Which tests got worse — listed by name, with exactly what changed
+- The overall pass rate delta
+
+To test two agent versions at the same time:
+
+```bash
+glyph compare-targets \
+  --factory my_app.evaluation:create_evaluation \
+  --target-a my_app.agents:build_v1 \
+  --target-b my_app.agents:build_v2 \
+  --dataset datasets/support-v1.jsonl
+```
+
+Both run in parallel. The comparison table appears automatically when both finish.
+
+---
+
+## Step 5 — Decide if it is safe to ship
+
+```bash
+glyph release \
+  --deterministic artifacts/candidate.jsonl \
+  --baseline      artifacts/baseline.jsonl \
+  --policy staging
+```
+
+Four built-in policies to choose from:
+
+| Policy | When to use | Pass rate required |
+|---|---|---|
+| `development` | While still building | 70% |
+| `default` | Routine releases | 90% |
+| `staging` | Before releasing to users | 95%, no regressions |
+| `strict` | Security-sensitive releases | 100%, no regressions |
+
+The output is a clear allowed or blocked verdict with a checklist of exactly
+what passed and what failed.
+
+---
+
+## Security checks
+
+Glyph checks what your agent actually did after every test — no separate security
+tool required. Add `--workers` to any run:
+
+```bash
+glyph run --workers \
+  --factory my_app.evaluation:create_evaluation \
+  --dataset datasets/support-v1.jsonl
+```
+
+Or audit any completed results file:
+
+```bash
+glyph security audit --results artifacts/candidate.jsonl
+```
+
+Checks cover: prompt injection (direct and indirect), exposed credentials,
+output injection, excessive or irreversible actions, system prompt leakage,
+private network access, path traversal, jailbreak attempts, and sandbox escape.
+
+All checks run on the recording Glyph already made during the run — no extra
+API calls. Coverage aligns with [OWASP Top 10 for LLMs 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+See [docs/SECURITY.md](docs/SECURITY.md) to configure checks for your deployment.
+
+---
+
+## Web console
+
+The CLI is the right tool for CI, scripting, and automation. The web console is the right tool
+for live monitoring, investigation, and team review.
+
+**Solo use:** run `glyph serve` on your laptop. SQLite is the default database — no setup needed.
+Only you can reach it, which is fine for local development.
+
+**Team use:** run `glyph serve` on a shared internal server, point it at a shared Postgres
+database and Redis instance, and teammates connect to that server's URL in their browser.
+The web console is a Next.js app that talks to whatever server you point it at via
+`NEXT_PUBLIC_API_URL`. Glyph does not operate any cloud server — you host it.
+
+```bash
+# Solo
 glyph serve --host 127.0.0.1 --port 8000
+glyph open
+
+# Team — after setting DATABASE_URL and CELERY_BROKER_URL in .env
+docker compose -f docker-compose.dev.yml up -d
+glyph serve --host 0.0.0.0 --port 8000
 glyph worker --concurrency 2
 ```
 
-Configure `DATABASE_URL` and Redis before using it. Treat this web path as
-pre-production until it has durable job-state transitions, idempotent dispatch,
-worker retry/dead-letter policy, authentication/authorization, migrations, and
-end-to-end operational tests.
+What the web console adds over the CLI:
 
-### LangSmith
+- **Runs** — watch individual test results stream in live as they complete. Cancel a run mid-flight.
+- **Results** — click through a regression to see the exact agent output, tool calls, and grade reason in one view without running separate commands.
+- **Compare** — see improved and regressed tests side by side. Copy a markdown summary for a pull request.
+- **Release check** — a shareable verdict page. Point a teammate at the URL instead of sending them a JSONL file.
+- **Tests** — import cases, validate coverage, see which security attack types are covered.
 
-Use LangSmith as a complementary trace explorer, experiment UI, and optional
-human-review surface—not as Glyph's release authority. The optional
-`LangSmithExporter` sends sanitized cases, experiments, trial feedback, and
-selected failures only after a local artifact is durable.
+The command guide panel (Terminal icon in the sidebar) shows the full CLI reference,
+always in sync with the installed version.
 
-For automatic LangGraph tracing, set `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`,
-and `LANGSMITH_PROJECT`. Add `@traceable` only around custom boundaries that
-LangChain/LangGraph does not already trace (for example, a custom provider,
-retriever, or tool adapter). Avoid blanket decoration: it can duplicate spans
-and expand sensitive data capture. Review export redaction, retention, and
-access controls before enabling it outside development.
+---
 
-## Product direction
+## Isolation
 
-The product vision is compelling: a user supplies a baseline and a seed phrase;
-Glyph creates 100+ controlled synthetic scenarios, runs both versions in
-disposable sandboxes, and shows exactly which behavioural slices improved or
-regressed.
+Every test runs in a sandbox. Glyph provisions one per test and cleans it up when
+the test finishes.
 
-### Seed-to-approved synthetic datasets
+| Provider | What it does |
+|---|---|
+| `NoopSandboxProvider` | No isolation. Use only for local graphs with no side effects. |
+| `FilesystemSandboxProvider` | Real temp-dir isolation, OS-backed. Can run commands and read/write files inside the trial directory. |
+| `NetworkSandboxProvider` | Records egress policy in metadata only. Does not block traffic at the OS level. |
 
-Glyph ships the local draft and approval workflow. A generator is
-application-owned: it may call an LLM, use a grounded document corpus, or be a
-deterministic template generator, but it must return `EvalCase` objects that
-meet the requested suite distribution and have unique IDs and inputs.
+For agents that make network calls or write to disk in production, implement a
+container-backed provider. See [docs/SANDBOX_PROVIDERS.md](docs/SANDBOX_PROVIDERS.md).
+
+---
+
+## All commands
+
+Run `glyph guide` for the full reference in your terminal. The web console has
+the same reference in the sidebar.
+
+| What you want to do | Command |
+|---|---|
+| Check your setup | `glyph doctor` |
+| Start a new project | `glyph init my-evaluation` |
+| Validate a test library | `glyph datasets validate --dataset datasets/example.jsonl` |
+| Import tests from an existing file | `glyph datasets convert --from my_tests.csv` |
+| Check config without running | `glyph run --check --factory ... --dataset ...` |
+| Run your tests | `glyph run --factory ... --dataset ...` |
+| Run with security and quality checks | `glyph run --workers --factory ... --dataset ...` |
+| Test two agent versions at once | `glyph compare-targets --factory ... --target-a ... --target-b ...` |
+| See what changed | `glyph compare --candidate ... --baseline ...` |
+| Decide if safe to ship | `glyph release --deterministic ... --baseline ...` |
+| Audit a results file for security issues | `glyph security audit --results artifacts/results.jsonl` |
+| Inspect a specific test result | `glyph artifacts trial --artifact artifacts/results.jsonl --case-id case-001` |
+| Watch a running job | `glyph status RUN_ID --watch` |
+| Open the web dashboard | `glyph open` |
+
+Every command supports `--help`. `glyph --version` prints the installed version.
+
+---
+
+## Output formats
 
 ```bash
-# Creates a draft; the bundled generator is only a deterministic example.
-glyph generation create \
-  --seed "password-reset customer-support agent" \
-  --generator examples.synthetic_generator:create_generator \
-  --output datasets/drafts/password-reset-v1.jsonl \
-  --count 100 --security 20 --regression 20 --tag support
-
-# Review records are append-only; every case requires an approval.
-glyph generation review \
-  --draft datasets/drafts/password-reset-v1.jsonl \
-  --case-id generated-001 --reviewer alice --decision approved
-
-# Promotion fails closed on missing or rejected reviews, and writes a manifest.
-glyph generation promote \
-  --draft datasets/drafts/password-reset-v1.jsonl \
-  --output datasets/releases/password-reset-v1.jsonl
+--format rich        # default — live progress bar and tables
+--format json        # machine-readable single object, good for CI
+--format json-stream # one event per line as they happen
+--format rpc         # for pipe integrations
+--format pr-comment  # markdown summary to paste into a pull request
 ```
 
-The generated draft records the seed phrase, count, taxonomy, random seed,
-generator name/version, and a content hash. Promotion creates a normal Glyph
-JSONL dataset plus a manifest; use that released dataset to establish a
-baseline. Generation does **not** make a case trustworthy—human review remains
-mandatory. Add retrieval only when cases must be grounded in a versioned source
-corpus; record source IDs with every generated case.
+---
 
-To move from the local MVP to a production generator:
+## What costs tokens and what does not
 
-1. Add a **dataset-generation service** with seed templates, taxonomy/coverage
-   targets, deterministic seed and model provenance, semantic deduplication,
-   PII and policy filters, and review assignment.
-2. Build and certify at least one **concrete sandbox provider** with egress
-   policy, ephemeral credentials, resource quotas, cancellation, cleanup
-   verification, and leak tests.
-3. Turn the API/worker flow into a **durable job system**: create the run row
-   before enqueueing; use an outbox/idempotency key; persist queued/running/
-   terminal states and trials; retry only safe failures; and route exhausted
-   jobs to a visible dead-letter queue.
-4. Make comparison **trial-aware and statistically sound**: aggregate repeated
-   trials by case, retain paired baseline/candidate evidence, report confidence
-   intervals and slice deltas, and fail explicitly on incomparable provenance.
-5. Add a production console for baseline promotion, dataset review, run status,
-   failure triage, drill-down by tags, RBAC/audit logs, retention, and secret
-   management.
+**Costs tokens (your API key):**
+- Running your agent — always. Your agent calls an LLM. Glyph invokes it once per test per agent version.
+- Model judges — optional. Only if you configure a `CalibratedModelJudge` as a grader. Off by default. Glyph enforces a cost ceiling you declare before making the call.
+- Case generation — optional. Only when you run `glyph generation create`. You opt in, you pay.
+
+**Costs zero tokens:**
+- All deterministic graders (`ExactMatchGrader`, `ContainsAllGrader`, `ToolPolicyGrader`, and the rest) — pure Python functions that read the recording.
+- All six analysis workers (`--workers`) — security checks, performance, tool use, output quality, graph structure, retrieval quality — all deterministic post-hoc analysis on the recording. No API calls.
+- Re-grading, comparison, release decisions — local computation on files you already have.
+- The web UI, API, and CLI — all local.
+
+The background job workers (`glyph worker`) are Celery workers that run evaluation tasks in the background. They are not LLM-calling workers — the word "worker" is a job queue term, not an AI term.
+
+```bash
+uv sync --extra web      # web console and background jobs
+uv sync --extra otel     # OpenTelemetry tracing and metrics
+uv sync --extra langsmith # LangSmith export
+```
+
+**OpenTelemetry:**
+Set `LANGGRAPH_EVAL_OTEL_ENABLED=true` to emit spans and metrics to your OTLP
+collector. The `observability/` directory has a local Docker Compose stack with
+Prometheus, Grafana, Tempo, and a pre-built evaluation dashboard.
+
+**LangSmith:**
+Set `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` for automatic
+LangGraph tracing. The `LangSmithExporter` sends sanitized cases and feedback after
+a local result file is written. A LangSmith outage cannot change a local result.
+
+---
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — contracts, boundaries, privacy, and
-  operational principles.
-- [User guide](docs/USER_GUIDE.md) — targets, graders, prompts, DSPy, LangSmith,
-  human review, and online evaluation.
-- [Data flow](docs/DATA_FLOW.md) — execution lifecycle and release gate.
-- [Task organization](docs/TASK_ORGANIZATION.md) — tags, datasets, and metadata.
-- [Web API](docs/WEB_API.md) — local service and worker setup.
+- [Architecture](docs/ARCHITECTURE.md) — how Glyph works under the hood.
+- [Security](docs/SECURITY.md) — OWASP coverage, adding checks, configuring policies.
+- [Sandbox providers](docs/SANDBOX_PROVIDERS.md) — built-in providers and the production contract.
+- [User guide](docs/USER_GUIDE.md) — graders, prompts, DSPy, LangSmith, human review.
+- [Data flow](docs/DATA_FLOW.md) — execution lifecycle and release gate in detail.
+- [Task organization](docs/TASK_ORGANIZATION.md) — tags, categories, and metadata.
+- [Web API](docs/WEB_API.md) — running the server and workers.
 - [Module reference](docs/MODULE_REFERENCE.md) — package map.
+
+---
 
 ## Development
 
@@ -306,6 +377,58 @@ uv run ruff check .
 uv run mypy
 uv build
 ```
+
+---
+
+## License
+
+MIT.
+
+## Optional extras
+
+Install only what you need:
+
+```bash
+uv sync --extra web      # web console and background jobs
+uv sync --extra otel     # OpenTelemetry tracing and metrics
+uv sync --extra langsmith # LangSmith export
+```
+
+**OpenTelemetry:**
+Set `LANGGRAPH_EVAL_OTEL_ENABLED=true` to emit spans and metrics to your OTLP
+collector. The `observability/` directory has a local Docker Compose stack with
+Prometheus, Grafana, Tempo, and a pre-built evaluation dashboard.
+
+**LangSmith:**
+Set `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` for automatic
+LangGraph tracing. The `LangSmithExporter` sends sanitized cases and feedback after
+a local result file is written. A LangSmith outage cannot change a local result.
+
+---
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — how Glyph works under the hood.
+- [Security](docs/SECURITY.md) — OWASP coverage, adding checks, configuring policies.
+- [Sandbox providers](docs/SANDBOX_PROVIDERS.md) — built-in providers and the production contract.
+- [User guide](docs/USER_GUIDE.md) — graders, prompts, DSPy, LangSmith, human review.
+- [Data flow](docs/DATA_FLOW.md) — execution lifecycle and release gate in detail.
+- [Task organization](docs/TASK_ORGANIZATION.md) — tags, categories, and metadata.
+- [Web API](docs/WEB_API.md) — running the server and workers.
+- [Module reference](docs/MODULE_REFERENCE.md) — package map.
+
+---
+
+## Development
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run mypy
+uv build
+```
+
+---
 
 ## License
 
