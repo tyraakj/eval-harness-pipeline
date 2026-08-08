@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
+import logging
 import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 from glyph.core.domain_models import EvalCase, SandboxSession
-from glyph.security.live_sandbox import RunContext, SandboxSessionError
+from glyph.security.live_sandbox import RunContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,16 +89,30 @@ class NetworkSandboxConfig:
 
 
 class NetworkSandboxProvider:
-    """Provides network isolation for offline evaluation."""
+    """Provides network isolation metadata for offline evaluation.
+    
+    Note: This provider records egress policy in metadata only — OS-level
+    enforcement requires a container-based provider. For production use,
+    consider a container-based sandbox provider that can actually block
+    network egress at the OS level.
+    """
 
     name = "network"
-    capabilities: frozenset[str] = frozenset({"network", "egress_control"})
+    capabilities: frozenset[str] = frozenset({"network", "egress_metadata_only"})
 
     def __init__(self, config: NetworkSandboxConfig) -> None:
         self.config = config
 
     async def provision(self, case: EvalCase, context: RunContext) -> SandboxSession:
-        """Establish network isolation rules for this trial."""
+        """Establish network isolation metadata for this trial.
+        
+        Warning: This only records the egress policy in metadata — OS-level
+        enforcement requires a container-based provider.
+        """
+        logger.warning(
+            "NetworkSandboxProvider records egress policy in metadata only — "
+            "OS-level enforcement requires a container-based provider."
+        )
         return SandboxSession(
             id=context.trial_id,
             provider=self.name,
@@ -129,6 +145,7 @@ class CompositeSandboxProvider:
         self.capabilities = frozenset(
             cap for provider in providers for cap in provider.capabilities
         )
+        self._child_sessions: dict[str, list[Any]] = {}
 
     async def provision(self, case: EvalCase, context: RunContext) -> SandboxSession:
         """Provision all child providers."""
@@ -144,17 +161,20 @@ class CompositeSandboxProvider:
             })
             metadata.update(session.metadata)
 
+        # Store child sessions keyed by the composite session ID
+        self._child_sessions[context.trial_id] = sessions
+
         return SandboxSession(
             id=context.trial_id,
             provider=self.name,
             isolation="composite",
             metadata=metadata,
-            child_sessions=sessions,
         )
 
     async def reset(self, session: SandboxSession) -> None:
         """Reset all child providers."""
-        for child in getattr(session, "child_sessions", []):
+        child_sessions = self._child_sessions.get(session.id, [])
+        for child in child_sessions:
             # Find the original provider and reset
             for provider in self.providers:
                 if provider.name == child.provider:
@@ -163,8 +183,12 @@ class CompositeSandboxProvider:
 
     async def destroy(self, session: SandboxSession) -> None:
         """Destroy all child providers in reverse order."""
-        for child in reversed(getattr(session, "child_sessions", [])):
+        child_sessions = self._child_sessions.get(session.id, [])
+        for child in reversed(child_sessions):
             for provider in self.providers:
                 if provider.name == child.provider:
                     await provider.destroy(child)
                     break
+        # Clean up stored sessions
+        if session.id in self._child_sessions:
+            del self._child_sessions[session.id]

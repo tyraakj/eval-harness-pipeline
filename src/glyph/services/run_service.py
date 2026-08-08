@@ -6,6 +6,7 @@ including CRUD operations and database interactions.
 
 from __future__ import annotations
 
+from datetime import UTC
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -87,15 +88,15 @@ class RunService:
         
         # Create DB record first for durability
         async with get_session() as session:
-            from datetime import datetime, timezone
+            from datetime import datetime
             
             db_run = Run(
                 id=generated_run_id,
                 suite_id="pending",  # Will be updated by task
                 suite_version="pending",  # Will be updated by task
                 status="queued",
-                started_at=datetime.now(timezone.utc),
-                finished_at=datetime.now(timezone.utc),  # Temporary, will be updated
+                started_at=datetime.now(UTC),
+                finished_at=datetime.now(UTC),  # Temporary, will be updated
                 total=0,  # Will be updated by task
                 cases=0,  # Will be updated by task
                 passed=0,
