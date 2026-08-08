@@ -119,61 +119,23 @@ celery_app.conf.update(
     
     # Task routing matching the architecture
     task_routes={
-        # Orchestrator routes to orchestrator queue
-        "glyph.specialized_workers.tasks.orchestrate_evaluation": {
-            "queue": "eval.orchestrator",
-            "routing_key": "orchestrator",
-        },
-        # Replay worker routes to replay queue
-        "glyph.specialized_workers.tasks.replay_evaluation": {
-            "queue": "eval.replay",
-            "routing_key": "replay",
-        },
-        # Tool worker routes to deterministic queue
-        "glyph.specialized_workers.tasks.tool_evaluation": {
+        # Only route for actual implemented task
+        "glyph.specialized_workers.evaluation.tasks.run_evaluation": {
             "queue": "eval.deterministic",
             "routing_key": "deterministic",
         },
-        # Retrieval worker routes to deterministic queue
-        "glyph.specialized_workers.tasks.retrieval_evaluation": {
-            "queue": "eval.deterministic",
-            "routing_key": "deterministic",
-        },
-        # Graph worker routes to deterministic queue
-        "glyph.specialized_workers.tasks.graph_evaluation": {
-            "queue": "eval.deterministic",
-            "routing_key": "deterministic",
-        },
-        # Output worker routes to deterministic queue
-        "glyph.specialized_workers.tasks.output_evaluation": {
-            "queue": "eval.deterministic",
-            "routing_key": "deterministic",
-        },
-        # Security worker routes to security queue
-        "glyph.specialized_workers.tasks.security_evaluation": {
-            "queue": "eval.security",
-            "routing_key": "security",
-        },
-        # Performance worker routes to deterministic queue
-        "glyph.specialized_workers.tasks.performance_evaluation": {
-            "queue": "eval.deterministic",
-            "routing_key": "deterministic",
-        },
-        # Semantic worker routes to semantic queue
-        "glyph.specialized_workers.tasks.semantic_evaluation": {
-            "queue": "eval.semantic",
-            "routing_key": "semantic",
-        },
-        # Comparison worker routes to comparison queue
-        "glyph.specialized_workers.tasks.baseline_comparison": {
-            "queue": "eval.comparison",
-            "routing_key": "comparison",
-        },
-        # Export worker routes to export queue
-        "glyph.specialized_workers.tasks.export_results": {
-            "queue": "eval.export",
-            "routing_key": "export",
-        },
+        # TODO: Restore these routes when the tasks are implemented
+        # "glyph.specialized_workers.tasks.orchestrate_evaluation": {"queue": "eval.orchestrator", "routing_key": "orchestrator"},
+        # "glyph.specialized_workers.tasks.replay_evaluation": {"queue": "eval.replay", "routing_key": "replay"},
+        # "glyph.specialized_workers.tasks.tool_evaluation": {"queue": "eval.deterministic", "routing_key": "deterministic"},
+        # "glyph.specialized_workers.tasks.retrieval_evaluation": {"queue": "eval.deterministic", "routing_key": "deterministic"},
+        # "glyph.specialized_workers.tasks.graph_evaluation": {"queue": "eval.deterministic", "routing_key": "deterministic"},
+        # "glyph.specialized_workers.tasks.output_evaluation": {"queue": "eval.deterministic", "routing_key": "deterministic"},
+        # "glyph.specialized_workers.tasks.security_evaluation": {"queue": "eval.security", "routing_key": "security"},
+        # "glyph.specialized_workers.tasks.performance_evaluation": {"queue": "eval.deterministic", "routing_key": "deterministic"},
+        # "glyph.specialized_workers.tasks.semantic_evaluation": {"queue": "eval.semantic", "routing_key": "semantic"},
+        # "glyph.specialized_workers.tasks.baseline_comparison": {"queue": "eval.comparison", "routing_key": "comparison"},
+        # "glyph.specialized_workers.tasks.export_results": {"queue": "eval.export", "routing_key": "export"},
     },
     
     # Worker settings

@@ -133,12 +133,15 @@ class EvaluationArtifact(BaseModel):
             "outcome_observations": outcome_observations,
             "usage": usage,
             "status": ArtifactStatus.COMPLETED,
+            "created_at": datetime.now(UTC),
             "completed_at": datetime.now(UTC),
-            "artifact_hash": "",  # Will be computed
+            "artifact_hash": "temp_hash",  # Will be computed
         }
         
-        # Compute artifact hash from all fields except the hash itself
-        artifact_dict = {k: v for k, v in artifact_data.items() if k != "artifact_hash"}
+        # Compute artifact hash using model_dump to ensure consistent serialization
+        temp_instance = cls(**artifact_data)
+        artifact_dict = temp_instance.model_dump()
+        artifact_dict.pop("artifact_hash")
         artifact_json = json.dumps(artifact_dict, sort_keys=True, default=str)
         artifact_hash = f"sha256:{hashlib.sha256(artifact_json.encode()).hexdigest()}"
         

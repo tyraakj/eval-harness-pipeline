@@ -153,6 +153,39 @@ class BaseSpecializedWorker(ABC):
     def evaluate(self, evidence: EvaluationEvidence) -> WorkerResult:
         """Evaluate the evidence and return a structured result."""
         pass
+        
+    def create_result(
+        self,
+        evaluation_id: str,
+        trial_id: str,
+        score: float,
+        passed: bool,
+        reason_code: str,
+        reason_message: str,
+        severity: Severity = Severity.INFO,
+        grader_mode: GraderMode = GraderMode.DETERMINISTIC,
+        confidence: float = 1.0,
+        evidence_refs: list[str] | None = None,
+        findings: dict[str, Any] | None = None,
+        **kwargs
+    ) -> WorkerResult:
+        """Helper method to create a WorkerResult with common fields."""
+        return WorkerResult(
+            evaluation_id=evaluation_id,
+            worker_type=self.worker_type,
+            worker_version=self.version,
+            trial_id=trial_id,
+            score=score,
+            passed=passed,
+            severity=severity,
+            reason_code=reason_code,
+            reason_message=reason_message,
+            evidence_refs=evidence_refs or [],
+            grader_mode=grader_mode,
+            confidence=confidence,
+            findings=findings or {},
+            **kwargs
+        )
 
 
 class BaseArtifactWorker(ABC):
