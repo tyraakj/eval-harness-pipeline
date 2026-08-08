@@ -33,7 +33,6 @@ from glyph.specialized_workers.grader_router import RoutingCriteria
 
 def test_pre_invocation_gate_proceed():
     """Test pre-invocation gate with valid conditions."""
-    print("Testing pre-invocation gate with valid conditions...")
     
     gate = PreInvocationGate("test_pre_invocation")
     
@@ -90,12 +89,10 @@ def test_pre_invocation_gate_proceed():
     assert result.decision == GateDecision.PROCEED
     assert result.gate_type == GateType.PRE_INVOCATION
     assert result.is_blocking is False
-    print("PASS: Pre-invocation gate passes with valid conditions")
 
 
 def test_pre_invocation_gate_fallback_no_ai():
     """Test pre-invocation gate fallback when AI unavailable."""
-    print("Testing pre-invocation gate fallback when AI unavailable...")
     
     gate = PreInvocationGate("test_pre_invocation")
     
@@ -136,12 +133,10 @@ def test_pre_invocation_gate_fallback_no_ai():
     assert result.decision == GateDecision.FALLBACK
     assert "use_deterministic" in result.fallback_data
     assert result.reason == "AI judge not available"
-    print("PASS: Pre-invocation gate falls back when AI unavailable")
 
 
 def test_pre_invocation_gate_block_budget():
     """Test pre-invocation gate blocks on budget exceeded."""
-    print("Testing pre-invocation gate blocks on budget exceeded...")
     
     gate = PreInvocationGate("test_pre_invocation")
     
@@ -185,12 +180,10 @@ def test_pre_invocation_gate_block_budget():
     assert result.decision == GateDecision.BLOCK
     assert result.is_blocking is True
     assert "budget" in result.reason.lower()
-    print("PASS: Pre-invocation gate blocks when budget exceeded")
 
 
 def test_cost_control_gate_proceed():
     """Test cost control gate allows within limits."""
-    print("Testing cost control gate allows within limits...")
     
     gate = CostControlGate(
         max_total_spending_usd=10.0,
@@ -205,12 +198,10 @@ def test_cost_control_gate_proceed():
     result = gate.evaluate(context)
     
     assert result.decision == GateDecision.PROCEED
-    print("PASS: Cost control gate allows within limits")
 
 
 def test_cost_control_gate_block_total():
     """Test cost control gate blocks on total budget exceeded."""
-    print("Testing cost control gate blocks on total budget exceeded...")
     
     gate = CostControlGate(max_total_spending_usd=1.0)
     
@@ -226,12 +217,10 @@ def test_cost_control_gate_block_total():
     
     assert result.decision == GateDecision.BLOCK
     assert result.is_blocking is True
-    print("PASS: Cost control gate blocks when total budget exceeded")
 
 
 def test_cost_control_gate_fallback_per_case():
     """Test cost control gate fallback on per-case limit."""
-    print("Testing cost control gate fallback on per-case limit...")
     
     gate = CostControlGate(max_per_case_spending_usd=0.1)
     
@@ -247,12 +236,10 @@ def test_cost_control_gate_fallback_per_case():
     
     assert result.decision == GateDecision.FALLBACK
     assert "use_deterministic" in result.fallback_data
-    print("PASS: Cost control gate falls back when per-case limit exceeded")
 
 
 def test_post_result_gate_validate_success():
     """Test post-result gate validates successful AI result."""
-    print("Testing post-result gate validates successful AI result...")
     
     gate = PostResultGate("test_post_result")
     
@@ -295,12 +282,10 @@ def test_post_result_gate_validate_success():
     
     assert result.decision == GateDecision.PROCEED
     assert result.gate_type == GateType.POST_RESULT
-    print("PASS: Post-result gate validates successful AI result")
 
 
 def test_post_result_gate_fallback_low_confidence():
     """Test post-result gate fallback on low confidence."""
-    print("Testing post-result gate fallback on low confidence...")
     
     gate = PostResultGate("test_post_result")
     
@@ -343,12 +328,10 @@ def test_post_result_gate_fallback_low_confidence():
     
     assert result.decision == GateDecision.FALLBACK
     assert "confidence" in result.reason.lower()
-    print("PASS: Post-result gate falls back on low confidence")
 
 
 def test_ai_judge_gate_chain_spending_tracking():
     """Test AI judge gate chain tracks spending."""
-    print("Testing AI judge gate chain tracks spending...")
     
     gate_chain = AIJudgeGateChain()
     
@@ -361,14 +344,10 @@ def test_ai_judge_gate_chain_spending_tracking():
     assert summary["total_spent_usd"] == 0.08
     assert summary["case_spending"]["case_001"] == 0.05
     assert summary["case_spending"]["case_002"] == 0.03
-    print("PASS: AI judge gate chain tracks spending correctly")
 
 
 def main():
     """Run all tests."""
-    print("=" * 60)
-    print("Testing AI Decision Gates Implementation")
-    print("=" * 60)
     
     try:
         test_pre_invocation_gate_proceed()
@@ -381,12 +360,8 @@ def main():
         test_post_result_gate_fallback_low_confidence()
         test_ai_judge_gate_chain_spending_tracking()
         
-        print("=" * 60)
-        print("All tests passed! PASS")
-        print("=" * 60)
         return 0
     except Exception as e:
-        print(f"Test failed: {e}")
         import traceback
         traceback.print_exc()
         return 1

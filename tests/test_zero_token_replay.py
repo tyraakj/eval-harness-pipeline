@@ -759,8 +759,8 @@ class TestDatasetService:
             target_case_count=5,
             use_combinatorial=True,
             parameters={
-                "param1": ["a", "b"],
-                "param2": [1, 2],
+                "input": ["a", "b"],
+                "expected_output": ["result_1", "result_2"],
             },
         )
         
@@ -914,7 +914,14 @@ class TestAIDecisionGates:
         """Test pre-invocation gate blocks on budget exceeded."""
         gate = PreInvocationGate("test_pre_invocation")
         
+        class MockArtifact:
+            final_output = {"data": "test"}
+            class Status:
+                value = "completed"
+            status = Status()
+            
         context = {
+            "artifact": MockArtifact(),
             "ai_judge_available": True,
             "total_spent_usd": 0.95,
             "max_budget_usd": 1.0,
@@ -939,7 +946,8 @@ class TestAIDecisionGates:
             "case_id": "case_001",
         }
         
-        decision, result = gate.evaluate_cost_control(0.01, "case_001", context)
+        result = gate.evaluate(context)
+        decision = result.decision
         
         assert decision == GateDecision.PROCEED
         assert result.decision == GateDecision.PROCEED
@@ -956,7 +964,8 @@ class TestAIDecisionGates:
             "case_id": "case_002",
         }
         
-        decision, result = gate.evaluate_cost_control(0.3, "case_002", context)
+        result = gate.evaluate(context)
+        decision = result.decision
         
         assert decision == GateDecision.BLOCK
         assert result.is_blocking is True
@@ -973,7 +982,8 @@ class TestAIDecisionGates:
             "case_id": "case_001",
         }
         
-        decision, result = gate.evaluate_cost_control(0.05, "case_001", context)
+        result = gate.evaluate(context)
+        decision = result.decision
         
         assert decision == GateDecision.FALLBACK
         assert "use_deterministic" in result.fallback_data
@@ -982,9 +992,22 @@ class TestAIDecisionGates:
         """Test post-result gate validates successful AI result."""
         gate = PostResultGate("test_post_result")
         
+        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
         ai_result = AIJudgeResult(
             success=True,
-            worker_result=None,  # Would be actual WorkerResult
+            worker_result=WorkerResult(
+                evaluation_id="eval_123",
+                worker_type=WorkerType.OUTPUT_QUALITY,
+                worker_version="1.0.0",
+                trial_id="trial_123",
+                score=0.9,
+                passed=True,
+                severity=Severity.INFO,
+                reason_code="compliant",
+                reason_message="Output compliant",
+                grader_mode=GraderMode.MODEL_JUDGE,
+                findings={"key": "value"}
+            ),
             model_used="gpt-4",
             tokens_used=500,
             cost_usd=0.01,
@@ -1010,9 +1033,22 @@ class TestAIDecisionGates:
         """Test post-result gate fallback on low confidence."""
         gate = PostResultGate("test_post_result")
         
+        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
         ai_result = AIJudgeResult(
             success=True,
-            worker_result=None,
+            worker_result=WorkerResult(
+                evaluation_id="eval_123",
+                worker_type=WorkerType.OUTPUT_QUALITY,
+                worker_version="1.0.0",
+                trial_id="trial_123",
+                score=0.9,
+                passed=True,
+                severity=Severity.INFO,
+                reason_code="compliant",
+                reason_message="Output compliant",
+                grader_mode=GraderMode.MODEL_JUDGE,
+                findings={"key": "value"}
+            ),
             model_used="gpt-4",
             tokens_used=500,
             cost_usd=0.01,
@@ -1207,9 +1243,22 @@ class TestAIDecisionGates:
         """Test AI judge gate chain for post-result validation."""
         gate_chain = AIJudgeGateChain()
         
+        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
         ai_result = AIJudgeResult(
             success=True,
-            worker_result=None,
+            worker_result=WorkerResult(
+                evaluation_id="eval_123",
+                worker_type=WorkerType.OUTPUT_QUALITY,
+                worker_version="1.0.0",
+                trial_id="trial_123",
+                score=0.9,
+                passed=True,
+                severity=Severity.INFO,
+                reason_code="compliant",
+                reason_message="Output compliant",
+                grader_mode=GraderMode.MODEL_JUDGE,
+                findings={"key": "value"}
+            ),
             model_used="gpt-4",
             tokens_used=500,
             cost_usd=0.01,

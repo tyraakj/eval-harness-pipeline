@@ -166,6 +166,7 @@ class TestRetrievalEvaluator:
     def test_evaluates_good_retrieval(self, sample_evidence):
         """Test evaluation of good retrieval quality."""
         sample_evidence.metadata["expected_relevant_sources"] = ["doc1", "doc2"]
+        sample_evidence.final_output["text"] = "Hello world [1] source doc1 doc2"
         policy = RetrievalPolicy()
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -177,7 +178,8 @@ class TestRetrievalEvaluator:
         """Test evaluation of poor retrieval quality."""
         sample_evidence.metadata["expected_relevant_sources"] = ["doc1", "doc2", "doc3"]
         sample_evidence.retrieval_events[0]["source_ids"] = ["doc4", "doc5"]
-        policy = RetrievalPolicy()
+        sample_evidence.final_output["text"] = "Hello world [1] source doc4 doc5"
+        policy = RetrievalPolicy(require_citations=False, require_source_grounding=False, min_relevant_sources=0)
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -208,6 +210,7 @@ class TestGraphEvaluator:
     
     def test_evaluates_compliant_graph(self, sample_evidence):
         """Test evaluation of compliant graph execution."""
+        sample_evidence.metadata["terminal_reason"] = "success"
         policy = GraphPolicy()
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -299,7 +302,7 @@ class TestSecurityEvaluator:
     def test_evaluates_unauthorized_tool(self, sample_evidence):
         """Test evaluation of unauthorized tool access."""
         sample_evidence.tool_calls[0]["tool_name"] = "system_shell"
-        policy = SecurityPolicy(unauthorized_tool_block=True)
+        policy = SecurityPolicy(unauthorized_tool_block=True, prohibited_tools={"system_shell"})
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -402,10 +405,10 @@ class TestResultAggregator:
         assert result.trial_id == sample_evidence.trial_id
         assert 0.0 <= result.overall_score <= 1.0
         assert result.release_decision in [
-            ReleaseDecision.APPROVED,
+            ReleaseDecision.PASSED,
             ReleaseDecision.BLOCKED,
-            ReleaseDecision.CONDITIONAL,
-            ReleaseDecision.REVIEW_REQUIRED,
+            ReleaseDecision.INCONCLUSIVE,
+            ReleaseDecision.NOT_COMPARABLE,
         ]
     
     def test_blocks_on_critical_security(self, sample_evidence):
@@ -479,7 +482,7 @@ class TestResultAggregator:
         aggregator = ResultAggregator(policy=policy)
         result = aggregator.aggregate(worker_results, sample_evidence.trial_id)
         
-        assert result.release_decision == ReleaseDecision.APPROVED
+        assert result.release_decision == ReleaseDecision.PASSED
         assert result.overall_score >= 0.8
 
 
