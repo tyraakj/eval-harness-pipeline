@@ -115,8 +115,16 @@ def run(
     ] = OutputFormat.RICH,
     stream: Annotated[
         bool,
-        typer.Option("--stream/--no-stream", help="Print one event as each trial completes"),
-    ] = True,
+        typer.Option("--stream/--no-stream", help="Print one event as each test completes"),
+    ] = False,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Check config without running tests"),
+    ] = False,
+    workers: Annotated[
+        bool,
+        typer.Option("--workers", help="Run extra analysis checks"),
+    ] = False,
 ) -> None:
     """Run a dataset and return a CI-friendly exit code."""
     definition = _load_factory(factory)()
@@ -127,17 +135,46 @@ def run(
     if output_format == OutputFormat.RICH:
         print_command_start(
             "run",
-            detail=f"{len(cases)} cases | {definition.repetitions} repetition(s) | {dataset}",
+            detail=f"{len(cases)} tests | {definition.repetitions} repetition(s) | {dataset}",
             run_id=run_id,
         )
+
+    if check:
+        console.print()
+        console.print("  [bold]Checks[/bold]")
+        
+        has_cases = len(cases) > 0
+        console.print(f"  [green][PASS][/green] Evaluation setup loaded: {factory}")
+        console.print(f"  [{'green' if has_cases else 'red'}][{'PASS' if has_cases else 'FAIL'}][/{'green' if has_cases else 'red'}] Dataset ready ({len(cases)} tests)")
+        
+        has_folder = output.parent.exists() or output.parent == Path("")
+        console.print(f"  [{'green' if has_folder else 'red'}][{'PASS' if has_folder else 'FAIL'}][/{'green' if has_folder else 'red'}] Results folder exists")
+        
+        has_sandbox = definition.sandbox_provider is not None
+        console.print(f"  [{'green' if has_sandbox else 'yellow'}][{'PASS' if has_sandbox else 'WARN'}][/{'green' if has_sandbox else 'yellow'}] Sandbox configured: {definition.sandbox_provider if has_sandbox else 'None'}")
+        
+        has_budget = definition.budget is not None
+        console.print(f"  [{'green' if has_budget else 'red'}][{'PASS' if has_budget else 'FAIL'}][/{'green' if has_budget else 'red'}] Budget looks correct")
+        
+        if not (has_cases and has_folder and has_budget):
+            raise typer.Exit(code=1)
+        raise typer.Exit(code=0)
+
     otel_runtime = configure_otel_from_env()
     try:
-        running_status = (
-            console.status("[glyph.brand]Running evaluation...[/glyph.brand]")
-            if output_format == OutputFormat.RICH and not stream
-            else nullcontext()
-        )
-        with running_status:
+        from glyph.utils.formatting import create_progress_callback, print_failed_tests_inline
+
+        progress_ctx = nullcontext()
+        trial_observer = None
+        completed_trials = []
+        if output_format == OutputFormat.RICH and not stream:
+            progress, observer, completed_trials = create_progress_callback(len(cases) * definition.repetitions)
+            progress_ctx = progress
+            trial_observer = observer
+        elif stream:
+            trial_observer = lambda record: print_trial_event(record, output_format)
+
+        with progress_ctx:
             summary = asyncio.run(
                 EvaluationRunner(
                     target=definition.target,
@@ -159,11 +196,7 @@ def run(
                     export_policy=definition.export_policy,
                     prompt_hashes=definition.prompt_hashes,
                     overwrite_artifact=overwrite,
-                    trial_observer=(
-                        lambda record: print_trial_event(record, output_format)
-                        if stream
-                        else None
-                    ),
+                    trial_observer=trial_observer,
                     trial_started_observer=(
                         print_trial_start
                         if output_format == OutputFormat.RICH and stream
@@ -174,7 +207,45 @@ def run(
     finally:
         if otel_runtime is not None:
             otel_runtime.shutdown()
+    if output_format == OutputFormat.RICH and not stream:
+        print_failed_tests_inline(completed_trials)
+
     format_run_summary(summary, output_format)
+
+    if workers and output_format == OutputFormat.RICH:
+        trials_for_analysis = completed_trials if (not stream and completed_trials) else _load_trial_records(output)
+        
+        # Calculate real metrics
+        security_trials = [t for t in trials_for_analysis if t.suite.value == "security"]
+        security_score = sum(1 for t in security_trials if t.status.value == "passed") / len(security_trials) if security_trials else 1.0
+        
+        perf_score = sum(1 for t in trials_for_analysis if t.status.value not in ("timeout", "budget_exceeded")) / len(trials_for_analysis) if trials_for_analysis else 1.0
+        
+        tool_trials = [t for t in trials_for_analysis if t.result and t.result.usage and t.result.usage.tool_calls > 0]
+        tool_score = sum(1 for t in tool_trials if t.status.value == "passed") / len(tool_trials) if tool_trials else 1.0
+        
+        retrieval_trials = [t for t in trials_for_analysis if t.result and t.result.retrievals]
+        retrieval_score = sum(1 for t in retrieval_trials if t.status.value == "passed") / len(retrieval_trials) if retrieval_trials else 1.0
+        
+        graph_trials = [t for t in trials_for_analysis if t.result and t.result.loop and t.result.loop.iterations]
+        graph_score = sum(1 for t in graph_trials if t.status.value == "passed") / len(graph_trials) if graph_trials else 1.0
+        
+        cap_trials = [t for t in trials_for_analysis if t.suite.value == "capability"]
+        cap_score = sum(t.score for t in cap_trials) / len(cap_trials) if cap_trials else 1.0
+
+        console.print()
+        console.print("  [bold]Analysis[/bold]")
+        analysis = Table(box=None, padding=(0, 2), show_header=False)
+        analysis.add_column("Category", style="cyan")
+        analysis.add_column("Score", justify="right")
+        analysis.add_row("  Security", f"{security_score * 100:.1f}%")
+        analysis.add_row("  Performance", f"{perf_score * 100:.1f}%")
+        analysis.add_row("  Tool use", f"{tool_score * 100:.1f}%")
+        analysis.add_row("  Retrieval quality", f"{retrieval_score * 100:.1f}%")
+        analysis.add_row("  Graph structure", f"{graph_score * 100:.1f}%")
+        analysis.add_row("  Output quality", f"{cap_score * 100:.1f}%")
+        console.print(analysis)
+
     if output_format == OutputFormat.RICH:
         duration = (summary.finished_at - summary.started_at).total_seconds()
         print_status_bar(cases=summary.cases, duration=f"{duration:.1f}s")
@@ -295,6 +366,21 @@ def _load_summary(path: Path) -> RunSummary:
     
     raise ValueError(f"Could not find RunSummary in artifact: {path}")
 
+_GUIDE_SECTIONS = {
+    "init": "Getting Started",
+    "doctor": "Getting Started",
+    "datasets": "Dataset Management",
+    "generation": "Dataset Generation",
+    "run": "Evaluation Execution",
+    "artifacts": "Analysis",
+    "compare": "Analysis",
+    "release": "Release Gates",
+    "serve": "Services",
+    "worker": "Services",
+    "history": "Services",
+    "config": "Services",
+}
+
 
 @app.command("guide")
 def guide_command() -> None:
@@ -330,7 +416,9 @@ def guide_command() -> None:
 
 
 @app.command("doctor")
-def doctor_command() -> None:
+def doctor_command(
+    factory: Annotated[str | None, typer.Option(help="Evaluation setup to validate")] = None,
+) -> None:
     """Check local CLI, artifact, and optional service configuration."""
     import os
     import sys
@@ -342,25 +430,57 @@ def doctor_command() -> None:
     console.print()
 
     checks = Table(
-        show_header=True,
-        header_style="bold",
-        box=_box.SIMPLE_HEAD,
+        show_header=False,
+        box=None,
         padding=(0, 2),
     )
-    checks.add_column("Check", style="dim")
     checks.add_column("Status", no_wrap=True)
-    checks.add_column("Detail", style="dim")
+    checks.add_column("Check")
 
-    def add_check(name: str, passed: bool, detail: str) -> None:
-        icon = "[green][PASS][/green]" if passed else "[yellow][ -- ][/yellow]"
-        checks.add_row(name, icon, detail)
+    def add_check(passed: bool, message: str, fix: str = "") -> None:
+        icon = "[green]✓[/green]" if passed else "[red]✗[/red]"
+        checks.add_row(f"  {icon}", message)
+        if not passed and fix:
+            checks.add_row("", f"[dim]→ fix: {fix}[/dim]")
 
-    add_check("Python", sys.version_info >= (3, 11), f"{sys.version.split()[0]} (requires 3.11+)")
-    add_check("Workspace", Path.cwd().exists(), str(Path.cwd()))
-    add_check("Artifacts", Path("artifacts").exists(), "artifacts/ directory" if Path("artifacts").exists() else "Run glyph init or create artifacts/")
-    add_check("Database", bool(os.getenv("DATABASE_URL")), "configured" if os.getenv("DATABASE_URL") else "optional - serve/history")
-    add_check("Redis", bool(os.getenv("CELERY_BROKER_URL")), "configured" if os.getenv("CELERY_BROKER_URL") else "optional - worker")
-    add_check("LangSmith", bool(os.getenv("LANGSMITH_API_KEY")), "configured" if os.getenv("LANGSMITH_API_KEY") else "optional - export/tracing")
+    add_check(sys.version_info >= (3, 11), f"Python {sys.version.split()[0]}", "Requires Python 3.11+")
+    add_check(Path.cwd().exists(), "Workspace exists", "Directory was deleted")
+    has_artifacts = Path("artifacts").exists()
+    add_check(has_artifacts, "Results folder (artifacts/)", "Run `glyph init` or create `artifacts/` folder")
+    
+    db_url = os.getenv("DATABASE_URL")
+    add_check(bool(db_url), "Database connection", "Set DATABASE_URL in .env to use `glyph serve` and `glyph history`")
+    
+    redis_url = os.getenv("CELERY_BROKER_URL")
+    add_check(bool(redis_url), "Redis connection", "Set CELERY_BROKER_URL in .env to use `glyph worker`")
+    
+    langsmith = os.getenv("LANGSMITH_API_KEY")
+    add_check(bool(langsmith), "LangSmith tracing", "Set LANGSMITH_API_KEY for observability")
+    
+    if factory:
+        console.print(checks)
+        console.print()
+        checks = Table(show_header=False, box=None, padding=(0, 2))
+        checks.add_column("Status", no_wrap=True)
+        checks.add_column("Check")
+        
+        try:
+            definition = _load_factory(factory)()
+            from glyph.core.evaluation import EvaluationDefinition
+            if not isinstance(definition, EvaluationDefinition):
+                add_check(False, f"Loaded evaluation setup: {factory}", "Factory must return EvaluationDefinition")
+            else:
+                add_check(True, f"Loaded evaluation setup: {factory}")
+                
+                has_target = definition.target is not None
+                add_check(has_target, "Target configured", "Set a target in the EvaluationDefinition")
+                
+                has_graders = len(definition.graders) > 0
+                add_check(has_graders, "Graders configured", "Add graders to the EvaluationDefinition")
+                
+        except Exception as e:
+            add_check(False, f"Failed to load evaluation setup: {factory}", f"Error: {e}")
+
     console.print(checks)
     print_status_bar()
 
@@ -750,6 +870,20 @@ def validate_dataset(
         for tag, count in tags.most_common(10):
             tag_table.add_row(tag, str(count))
         console.print(tag_table)
+        
+    # Validation rules
+    console.print()
+    tagged_cases = sum(1 for case in cases if case.tags)
+    if len(cases) > 0 and tagged_cases / len(cases) < 0.5:
+        pct = (tagged_cases / len(cases)) * 100
+        console.print(f"  [yellow]![/yellow] Only {tagged_cases} / {len(cases)} tests have tags ({pct:.0f}%). Tags help you filter results by topic later.")
+        console.print('  [dim]→ add tags like {"tags": ["edge-case", "p0"]}[/dim]')
+        
+    security_count = suites.get("security", 0)
+    if security_count < 5:
+        console.print(f"  [yellow]![/yellow] Only {security_count} security tests found. Missing coverage for injections.")
+        console.print('  [dim]→ copy examples from https://github.com/glyph-ai/glyph-security[/dim]')
+
     print_status_bar(cases=len(cases))
 
 
@@ -794,3 +928,78 @@ def config_command() -> None:
     table.add_row("OTEL_EXPORTER_OTLP_ENDPOINT", os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "Not set"))
     
     console.print(table)
+
+
+@app.command("open")
+def open_command(
+    port: Annotated[int, typer.Option(help="Port of the local server")] = 8000,
+) -> None:
+    """Open the local web dashboard."""
+    import webbrowser
+    url = f"http://localhost:{port}"
+    console.print(f"Opening dashboard at {url}")
+    console.print("[dim]If the server is not running, run `glyph serve` in another terminal.[/dim]")
+    webbrowser.open(url)
+
+
+@app.command("status")
+def status_command(
+    run_id: Annotated[str, typer.Argument(help="Run ID to check")],
+    watch: Annotated[bool, typer.Option("--watch", help="Auto-refresh status")] = False,
+) -> None:
+    """Check the live status of an evaluation run."""
+    try:
+        from glyph.db.session import init_db
+        from glyph.services.run_service import RunService
+    except ImportError:
+        console.print("[red]Database dependencies not installed[/red]")
+        console.print("Install with: uv sync --extra web")
+        raise typer.Exit(code=1)
+
+    async def _fetch():
+        await init_db()
+        return await RunService.get_run(run_id)
+
+    import time
+    while True:
+        run = asyncio.run(_fetch())
+        if not run:
+            console.print(f"[red]Run {run_id} not found[/red]")
+            raise typer.Exit(code=1)
+
+        if watch:
+            console.clear()
+        
+        console.print(f"[bold]Status for {run_id}[/bold]")
+        console.print(f"State: {run.status}")
+        if run.total_trials:
+            console.print(f"Passed: {run.passed} / {run.total_trials}")
+            
+        if not watch:
+            break
+        time.sleep(2)
+
+
+security_app = typer.Typer(help="Security checks and audits")
+app.add_typer(security_app, name="security")
+
+@security_app.command("audit")
+def security_audit_command(
+    artifact: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+) -> None:
+    """Check evaluation results for security issues like leaked credentials."""
+    trials = _load_trial_records(artifact)
+    leaked = []
+    for t in trials:
+        if t.result and t.result.output:
+            out = t.result.output.lower()
+            if "password" in out or "secret" in out or "key" in out:
+                leaked.append(t.case_id)
+                
+    if leaked:
+        console.print("[red]✗ Found leaked credentials or secrets![/red]")
+        for l in leaked:
+            console.print(f"  [dim]- {l}[/dim]")
+        raise typer.Exit(code=1)
+    
+    console.print("[green]✓ No credentials leaked.[/green]")
