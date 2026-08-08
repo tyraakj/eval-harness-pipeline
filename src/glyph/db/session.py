@@ -7,14 +7,14 @@ with asyncpg driver, optimized for Neon serverless PostgreSQL.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from contextlib import asynccontextmanager
-from collections.abc import AsyncGenerator
 
 from glyph.db.orm_models import Base
 

@@ -12,6 +12,6 @@ from glyph.adapters.openai_adapter import create_openai_target
 
 __all__ = [
     "create_anthropic_target",
-    "create_openai_target",
     "create_http_target",
+    "create_openai_target",
 ]

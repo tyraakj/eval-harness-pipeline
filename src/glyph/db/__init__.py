@@ -13,8 +13,8 @@ from glyph.db.session import (
 )
 
 __all__ = [
-    "Base",
     "DATABASE_URL",
+    "Base",
     "Run",
     "Trial",
     "close_db",
