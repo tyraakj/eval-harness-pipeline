@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
@@ -16,7 +17,6 @@ from glyph.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.specialized_workers.artifact import EvaluationArtifact
 
 
 @dataclass
