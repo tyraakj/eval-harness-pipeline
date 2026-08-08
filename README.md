@@ -1,10 +1,14 @@
 # Glyph
 
-**Know exactly what changed in your agent, why, and whether it is safe to ship.**
+**Know exactly what changed in your agent, why each test broke, and whether it is safe to ship.**
 
 - **Records what your agent did** — every tool call, output, and timing measurement, permanently, for each version you run.
 - **Change your evaluation without re-running your agent** — when Glyph runs your agent, it records the complete output: every tool call with its arguments and return value, the final response, timing, and token usage. That record is written to a JSONL file on your disk and, if you are using the web UI, also to your own database. Graders never call your agent — they read that record. Adding a new grader, tightening a threshold, or running a security check means running a different function against the same record. No API call, no model invocation, no tokens spent. The only thing that costs tokens is the agent execution itself, which happens once per agent version. Everything after — grading, re-grading, security checks, comparisons, release decisions — is local computation on the record you already have.
-- **Case-level regressions, not just scores** — see exactly which tests got worse, with the specific reason each one failed. Not "pass rate dropped 4%" — "these 3 tests regressed, here is what the agent did in each one."
+- **Case-level failures, not just scores** — when a test fails, Glyph tells you exactly why: the expected string was not in the output, the required tool was not called, the response exceeded the time limit, the agent called a blocked endpoint. Each failure links to the specific check that did not pass and what the agent actually produced. Not "pass rate dropped 4%" — "these 3 tests failed, here is what broke in each one."
+- **Baseline comparison that goes deeper than a delta** — when you compare a candidate run against a baseline, Glyph joins the two result files by case ID and tells you the exact score change for every test that moved: which cases improved (failed before, passes now), which regressed (passed before, fails now), and which stayed the same. The release gate then enforces policy on top of that: maximum regression count, minimum pass rate delta, per-suite thresholds for capability, regression, and security categories independently. Security cannot be masked by a strong capability score.
+- **Shows where the model is going wrong** — the trajectory recording captures every decision the model made: which tools it called in which order, what arguments it passed, how many times it looped, what it produced at each step. From that, Glyph can tell you the model called the wrong tool first, passed a null argument, looped 8 times when it should have stopped at 2, or leaked a credential it saw in context.
+- **AI review for things deterministic checks cannot measure** — for reasoning quality, tone, factual grounding, or any nuanced rubric, add a `CalibratedModelJudge`. It calls an LLM with your rubric and scoring threshold, enforces a declared cost ceiling before making the call, and produces a grade that participates in the same pass/fail policy as all other graders. The AI judge escalation path goes further: the grader router can automatically escalate borderline cases to a judge after deterministic checks run, with budget and rate-limit gates that fall back to deterministic evaluation if the judge is unavailable or too expensive.
+- **Human review for decisions that require it** — some failures need a human, not an algorithm. Glyph's human review ledger assigns specific trials to named reviewers with a versioned rubric, tracks pass/fail/abstain decisions, requires a configurable minimum number of reviews, flags disagreements for adjudication, and computes inter-reviewer agreement (Cohen's kappa). Human review has its own independent release policy: you can require specific rubrics to be completed and passing before a release is allowed, separate from the automated verdict. All records are append-only JSONL — auditable, versioned, and yours.
 - **Security built into the run** — deterministic checks for prompt injection, credential exposure, excessive actions, SSRF, path traversal, and jailbreak attempts run on the same recording your graders already used. No separate tool, no extra API calls, covers [OWASP LLM Top 10 (2025)](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
 - **One reproducible decision** — every result file records the dataset hash, target version, model ID, and grader versions. Two engineers running the same file get the same release decision. No drift, no "it passed on my machine."
 - **Your data, your files, your server** — the JSONL result files live on your disk. The web UI runs on your own machine via `glyph serve` and talks to a SQLite database by default — no account, no cloud service, nothing leaving your environment. If you want a team setup, you point it at your own Postgres and Redis. Glyph does not operate any server you connect to. There is no `app.glyph.io`.
@@ -117,8 +121,12 @@ def create_evaluation() -> EvaluationDefinition:
     )
 ```
 
-The `graders` tell Glyph what a passing response looks like. The `budget` sets the
-limits per test. The `sandbox_provider` gives each test a clean, isolated environment.
+The `graders` define what a passing response looks like — they check observable
+behavior like output content, tool usage, and timing, and tell you exactly which
+one broke when a test fails.
+
+The `budget` sets limits per test. The `sandbox_provider` gives each test a clean,
+isolated environment.
 
 Before running, check that everything wires up correctly:
 
@@ -142,8 +150,8 @@ glyph run \
 ```
 
 You will see a live progress bar as tests complete. When done, Glyph prints a summary
-and lists any tests that failed with the specific reason each one failed — no need to
-dig through a separate log file.
+and lists any tests that failed with the specific reason — which check did not pass
+and what the agent actually produced instead of what was expected.
 
 Save the first passing run as your baseline:
 
@@ -165,7 +173,7 @@ glyph compare \
 
 Output shows:
 - Which tests got better
-- Which tests got worse — listed by name, with exactly what changed
+- Which tests got worse — listed by name, with exactly why: which check failed and what the agent did instead
 - The overall pass rate delta
 
 To test two agent versions at the same time:
@@ -200,15 +208,15 @@ Four built-in policies to choose from:
 | `staging` | Before releasing to users | 95%, no regressions |
 | `strict` | Security-sensitive releases | 100%, no regressions |
 
-The output is a clear allowed or blocked verdict with a checklist of exactly
-what passed and what failed.
+The output is a clear allowed or blocked verdict with a checklist of what passed
+and what failed.
 
 ---
 
 ## Security checks
 
-Glyph checks what your agent actually did after every test — no separate security
-tool required. Add `--workers` to any run:
+Glyph checks what your agent actually did after every test and tells you exactly
+what it found. Add `--workers` to any run:
 
 ```bash
 glyph run --workers \
@@ -222,13 +230,33 @@ Or audit any completed results file:
 glyph security audit --results artifacts/candidate.jsonl
 ```
 
-Checks cover: prompt injection (direct and indirect), exposed credentials,
-output injection, excessive or irreversible actions, system prompt leakage,
-private network access, path traversal, jailbreak attempts, and sandbox escape.
+Checks cover: prompt injection patterns in inputs, credential-like strings in
+outputs, tool calls to blocked domains, path traversal in arguments, excessive
+or irreversible action patterns in outputs. When a check fires, Glyph tells you
+which test triggered it and what it found.
 
-All checks run on the recording Glyph already made during the run — no extra
-API calls. Coverage aligns with [OWASP Top 10 for LLMs 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+Coverage aligns with [OWASP Top 10 for LLMs 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
 See [docs/SECURITY.md](docs/SECURITY.md) to configure checks for your deployment.
+
+---
+
+## What costs tokens and what does not
+
+**Always costs tokens (your API key, your cost):**
+- **Running your agent** — Glyph invokes your agent once per test per agent version. Your agent calls an LLM. That is unavoidable — it is the point.
+
+**Costs tokens only if you opt in:**
+- **Model judge** — an optional grader (`CalibratedModelJudge`) that calls an LLM to score a response when deterministic checks are not enough. Off by default. You configure it explicitly, declare a cost ceiling, and Glyph enforces it before making the call. If the ceiling would be exceeded, the trial is marked `BUDGET_EXCEEDED` rather than silently spending more.
+- **AI judge escalation** — the grader router can escalate a borderline case to an AI judge after deterministic checks run. Gated by `AIJudgeGateChain`: checks budget, rate limits, case criticality, and AI availability before making any call. Falls back to deterministic evaluation if any gate blocks.
+- **Online evaluator** — evaluates live production traces against your configured graders.
+- **Case generation** — `glyph generation create` calls an LLM to generate test cases. You provide the API key and control the count.
+
+**Costs zero tokens (always):**
+- All six `--workers` analysis checks — Security, Performance, Tool use, Output quality, Graph structure, Retrieval quality. All deterministic post-hoc analysis on the recording. No API call of any kind.
+- All built-in graders — `ExactMatchGrader`, `ContainsAllGrader`, `ToolPolicyGrader`, `RetrievalMetricsGrader`, and the rest. Pure Python functions reading the recording.
+- Re-grading, comparison, release decisions, the web UI, the API, the CLI — all local computation.
+
+The background job workers (`glyph worker`) are a Celery job queue mechanism — they run evaluation tasks in the background so the API stays responsive. They are not AI workers. Whether a task costs tokens depends on what that task does, not on the worker running it.
 
 ---
 
@@ -259,7 +287,7 @@ glyph worker --concurrency 2
 What the web console adds over the CLI:
 
 - **Runs** — watch individual test results stream in live as they complete. Cancel a run mid-flight.
-- **Results** — click through a regression to see the exact agent output, tool calls, and grade reason in one view without running separate commands.
+- **Results** — click through a failure to see the agent output, tool calls, and grade reason in one view.
 - **Compare** — see improved and regressed tests side by side. Copy a markdown summary for a pull request.
 - **Release check** — a shareable verdict page. Point a teammate at the URL instead of sending them a JSONL file.
 - **Tests** — import cases, validate coverage, see which security attack types are covered.
@@ -323,74 +351,13 @@ Every command supports `--help`. `glyph --version` prints the installed version.
 
 ---
 
-## What costs tokens and what does not
-
-**Costs tokens (your API key):**
-- Running your agent — always. Your agent calls an LLM. Glyph invokes it once per test per agent version.
-- Model judges — optional. Only if you configure a `CalibratedModelJudge` as a grader. Off by default. Glyph enforces a cost ceiling you declare before making the call.
-- Case generation — optional. Only when you run `glyph generation create`. You opt in, you pay.
-
-**Costs zero tokens:**
-- All deterministic graders (`ExactMatchGrader`, `ContainsAllGrader`, `ToolPolicyGrader`, and the rest) — pure Python functions that read the recording.
-- All six analysis workers (`--workers`) — security checks, performance, tool use, output quality, graph structure, retrieval quality — all deterministic post-hoc analysis on the recording. No API calls.
-- Re-grading, comparison, release decisions — local computation on files you already have.
-- The web UI, API, and CLI — all local.
-
-The background job workers (`glyph worker`) are Celery workers that run evaluation tasks in the background. They are not LLM-calling workers — the word "worker" is a job queue term, not an AI term.
-
-```bash
-uv sync --extra web      # web console and background jobs
-uv sync --extra otel     # OpenTelemetry tracing and metrics
-uv sync --extra langsmith # LangSmith export
-```
-
-**OpenTelemetry:**
-Set `LANGGRAPH_EVAL_OTEL_ENABLED=true` to emit spans and metrics to your OTLP
-collector. The `observability/` directory has a local Docker Compose stack with
-Prometheus, Grafana, Tempo, and a pre-built evaluation dashboard.
-
-**LangSmith:**
-Set `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` for automatic
-LangGraph tracing. The `LangSmithExporter` sends sanitized cases and feedback after
-a local result file is written. A LangSmith outage cannot change a local result.
-
----
-
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md) — how Glyph works under the hood.
-- [Security](docs/SECURITY.md) — OWASP coverage, adding checks, configuring policies.
-- [Sandbox providers](docs/SANDBOX_PROVIDERS.md) — built-in providers and the production contract.
-- [User guide](docs/USER_GUIDE.md) — graders, prompts, DSPy, LangSmith, human review.
-- [Data flow](docs/DATA_FLOW.md) — execution lifecycle and release gate in detail.
-- [Task organization](docs/TASK_ORGANIZATION.md) — tags, categories, and metadata.
-- [Web API](docs/WEB_API.md) — running the server and workers.
-- [Module reference](docs/MODULE_REFERENCE.md) — package map.
-
----
-
-## Development
-
-```bash
-uv run pytest
-uv run ruff check .
-uv run mypy
-uv build
-```
-
----
-
-## License
-
-MIT.
-
 ## Optional extras
 
 Install only what you need:
 
 ```bash
-uv sync --extra web      # web console and background jobs
-uv sync --extra otel     # OpenTelemetry tracing and metrics
+uv sync --extra web       # web console and background jobs
+uv sync --extra otel      # OpenTelemetry tracing and metrics
 uv sync --extra langsmith # LangSmith export
 ```
 
