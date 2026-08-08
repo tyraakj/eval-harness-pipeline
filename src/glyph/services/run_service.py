@@ -107,6 +107,7 @@ class RunService:
                 average_score=0.0,
                 artifact_path=None,
                 summary={"config": config, "status": "queued"},
+                task_id=None,
             )
             session.add(db_run)
             await session.commit()
@@ -114,4 +115,37 @@ class RunService:
         # Dispatch to Celery background worker
         task = run_evaluation.delay(config, generated_run_id)
         
+        # Store the task_id
+        async with get_session() as session:
+            from sqlalchemy import update
+            await session.execute(
+                update(Run).where(Run.id == generated_run_id).values(task_id=task.id)
+            )
+            await session.commit()
+        
         return generated_run_id, "queued"
+
+    @staticmethod
+    async def cancel_run(run_id: str) -> bool:
+        """Cancel a queued or running evaluation run."""
+        from glyph.specialized_workers.evaluation.tasks import celery_app
+        from sqlalchemy import update
+        
+        async with get_session() as session:
+            query = select(Run).where(Run.id == run_id)
+            result = await session.execute(query)
+            run = result.scalar_one_or_none()
+            
+            if run is None or run.task_id is None or run.status in ("completed", "failed", "cancelled"):
+                return False
+                
+            # Revoke the Celery task
+            celery_app.control.revoke(run.task_id, terminate=True, signal="SIGTERM")
+            
+            # Update DB
+            await session.execute(
+                update(Run).where(Run.id == run_id).values(status="cancelled")
+            )
+            await session.commit()
+            
+            return True

@@ -39,6 +39,7 @@ class Run(Base):
     average_score: Mapped[float]
     artifact_path: Mapped[str | None]
     summary: Mapped[dict[str, Any]] = mapped_column(JSON)
+    task_id: Mapped[str | None]
     
     __table_args__ = (
         Index("idx_runs_suite_started", "suite_id", "started_at"),
