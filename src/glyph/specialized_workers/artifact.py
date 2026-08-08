@@ -109,7 +109,7 @@ class EvaluationArtifact(BaseModel):
         final_output: dict[str, Any],
         outcome_observations: list[dict[str, Any]],
         usage: UsageMetrics,
-    ) -> "EvaluationArtifact":
+    ) -> EvaluationArtifact:
         """Create a new artifact with generated IDs and hashes."""
         import uuid
         

@@ -9,21 +9,21 @@ from typing import Any
 from celery import current_task
 from pydantic import ValidationError
 
-from glyph.specialized_workers.infra.celery_config import celery_app
+from glyph.specialized_workers.aggregator import AggregationPolicy, ResultAggregator
+from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
     EvaluationEvidence,
     WorkerResult,
     WorkerType,
 )
-from glyph.specialized_workers.artifact import EvaluationArtifact
-from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
-from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
 from glyph.specialized_workers.evaluators.graph_evaluator import GraphEvaluator
 from glyph.specialized_workers.evaluators.output_evaluator import OutputEvaluator
-from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
 from glyph.specialized_workers.evaluators.performance_evaluator import PerformanceEvaluator
+from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
+from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
+from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
+from glyph.specialized_workers.infra.celery_config import celery_app
 from glyph.specialized_workers.orchestrator import EvaluationOrchestrator, OrchestratorConfig
-from glyph.specialized_workers.aggregator import ResultAggregator, AggregationPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -282,10 +282,10 @@ def semantic_evaluation(
         # This would integrate with AI judges for semantic evaluation
         # For now, return a placeholder result
         from glyph.specialized_workers.base import (
-            WorkerResult,
-            WorkerType,
             GraderMode,
             Severity,
+            WorkerResult,
+            WorkerType,
         )
         
         result = WorkerResult(
@@ -420,17 +420,16 @@ def replay_evaluation(
         artifact = EvaluationArtifact(**artifact_dict)
         
         # Extract evidence from artifact
-        from glyph.specialized_workers.base import BaseArtifactWorker
         
         # In a full implementation, this would instantiate the appropriate
         # artifact worker and run deterministic graders
         # For now, return a placeholder result indicating replay mode
         
         from glyph.specialized_workers.base import (
-            WorkerResult,
-            WorkerType,
             GraderMode,
             Severity,
+            WorkerResult,
+            WorkerType,
         )
         
         result = WorkerResult(
