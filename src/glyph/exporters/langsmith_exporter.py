@@ -7,12 +7,12 @@ from functools import partial
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from glyph.core.domain_models import EvalCase, RunSummary, TrialRecord, TrialStatus
 from glyph.evaluation.human import (
     HumanEvaluationLedger,
     HumanGrade,
     HumanReviewDecision,
 )
-from glyph.core.domain_models import EvalCase, RunSummary, TrialRecord, TrialStatus
 from glyph.utils import sanitize
 
 

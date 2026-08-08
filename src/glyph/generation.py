@@ -21,8 +21,8 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from glyph.core.domain_models import EvalCase, SuiteType
-from glyph.utils.datasets import load_jsonl
 from glyph.utils.common import canonical_json, sanitize
+from glyph.utils.datasets import load_jsonl
 
 
 class FrozenModel(BaseModel):

@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
-from glyph.security.contracts import EvaluationExporter
 from glyph.core.domain_models import EvalCase, ExportPolicy, RunSummary, TrialRecord
 from glyph.monitoring.telemetry import EvaluationTelemetry
+from glyph.security.contracts import EvaluationExporter
 from glyph.utils import content_hash, sanitize_text
 
 
