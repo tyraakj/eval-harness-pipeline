@@ -1,5 +1,7 @@
 """Example integration of specialized workers with evaluation runner."""
 
+from glyph.agent_runtime.ai_analysis import HybridAIAnalyzer, NoOpAIAnalyzer
+
 from glyph.agent_runtime import (
     WorkerCapability,
     WorkerCoordinator,
@@ -7,7 +9,6 @@ from glyph.agent_runtime import (
     WorkerRegistry,
     WorkerTask,
 )
-from glyph.agent_runtime.ai_analysis import HybridAIAnalyzer, NoOpAIAnalyzer
 
 
 def setup_worker_system(use_ai: bool = False):

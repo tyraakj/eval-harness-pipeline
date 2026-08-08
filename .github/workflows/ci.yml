@@ -33,7 +33,7 @@ jobs:
         uv lock
     
     - name: Run pytest
-      run: uv run pytest --cov=langgraph_eval --cov-report=xml
+      run: uv run pytest --cov=glyph --cov-report=xml
     
     - name: Run ruff check
       run: uv run ruff check .
@@ -118,7 +118,7 @@ jobs:
         uv lock
     
     - name: Run security tests
-      run: uv run lg-eval run --factory examples.simple_graph:create_evaluation --dataset datasets/security.jsonl --output artifacts/security-test.jsonl --overwrite
+      run: uv run glyph run --factory examples.simple_graph:create_evaluation --dataset datasets/security.jsonl --output artifacts/security-test.jsonl --overwrite
     
     - name: Upload security test results
       if: always()
