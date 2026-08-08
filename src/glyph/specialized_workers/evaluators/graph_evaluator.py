@@ -31,7 +31,7 @@ class GraphPolicy:
     max_total_nodes: int = 50
     max_loops: int = 10
     require_terminal_state: bool = True
-    allowed_terminal_reasons: set[str] = field(default_factory=lambda: {"success", "complete"})
+    allowed_terminal_reasons: set[str] = field(default_factory=lambda: {"success", "completed"})
 
 
 @dataclass

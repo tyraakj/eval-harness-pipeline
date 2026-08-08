@@ -50,7 +50,7 @@ class WorkerResultStorage:
     """Storage for worker results with idempotency handling."""
     
     def __init__(self):
-        # In-memory storage for demonstration
+        # NOT PRODUCTION READY: Process-local storage only
         # In production, this would use a database (PostgreSQL, Redis, etc.)
         self._attempts: dict[str, EvaluationAttempt] = {}
         self._results: dict[str, WorkerResult] = {}

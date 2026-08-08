@@ -177,7 +177,10 @@ class LiveExecutor(BaseExecutor):
         context: ExecutionContext,
         case_data: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """Simulate execution for demonstration."""
+        """Simulate execution for demonstration.
+        
+        # NOT PRODUCTION READY
+        """
         # In production, this would actually execute the target
         return [
             {
