@@ -38,7 +38,7 @@ class Severity(StrEnum):
     CRITICAL = "critical"
 
 
-@dataclass
+@dataclass(frozen=True)
 class EvaluationEvidence:
     """Bounded evidence collected during trial execution."""
     trial_id: str
@@ -46,25 +46,25 @@ class EvaluationEvidence:
     case_id: str
     
     # Tool execution evidence
-    tool_calls: list[dict[str, Any]] = field(default_factory=list)
-    tool_errors: list[dict[str, Any]] = field(default_factory=list)
+    tool_calls: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    tool_errors: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     
     # Retrieval evidence
-    retrieval_events: list[dict[str, Any]] = field(default_factory=list)
-    source_ids: list[str] = field(default_factory=list)
+    retrieval_events: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    source_ids: tuple[str, ...] = field(default_factory=tuple)
     
     # Graph execution evidence
-    graph_nodes: list[dict[str, Any]] = field(default_factory=list)
-    graph_edges: list[dict[str, Any]] = field(default_factory=list)
-    state_transitions: list[dict[str, Any]] = field(default_factory=list)
+    graph_nodes: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    graph_edges: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    state_transitions: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     
     # Output evidence
     final_output: dict[str, Any] = field(default_factory=dict)
     output_schema: dict[str, Any] = field(default_factory=dict)
     
     # Security evidence
-    security_events: list[dict[str, Any]] = field(default_factory=list)
-    auth_attempts: list[dict[str, Any]] = field(default_factory=list)
+    security_events: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    auth_attempts: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     
     # Performance evidence
     latency_ms: float = 0.0
@@ -218,31 +218,31 @@ class BaseArtifactWorker(ABC):
             trial_id=artifact.trial_id,
             run_id=artifact.run_id,
             case_id=artifact.case_id,
-            tool_calls=[
+            tool_calls=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "tool_call"
-            ],
-            tool_errors=[
+            ),
+            tool_errors=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "tool_error"
-            ],
-            retrieval_events=[
+            ),
+            retrieval_events=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "retrieval"
-            ],
-            graph_nodes=[
+            ),
+            graph_nodes=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "graph_node"
-            ],
-            graph_edges=[
+            ),
+            graph_edges=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "graph_edge"
-            ],
+            ),
             final_output=artifact.final_output,
-            security_events=[
+            security_events=tuple(
                 event for event in artifact.events
                 if event.get("event_type") == "security"
-            ],
+            ),
             token_usage={
                 "input_tokens": artifact.usage.input_tokens,
                 "output_tokens": artifact.usage.output_tokens,

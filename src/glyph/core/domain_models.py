@@ -320,6 +320,7 @@ class TrialRecord(FrozenModel):
     sandbox: SandboxSession | None = None
     sandbox_cleanup: SandboxCleanup = Field(default_factory=SandboxCleanup)
     provenance: Provenance
+    worker_verdicts: dict[str, Any] | None = None
 
 
 class SuiteSummary(FrozenModel):

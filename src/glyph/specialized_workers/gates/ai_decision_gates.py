@@ -12,6 +12,13 @@ from glyph.specialized_workers.base import (
     WorkerResult,
 )
 
+@dataclass
+class RoutingCriteria:
+    """Criteria used for routing evaluation tasks."""
+    is_critical_case: bool = False
+    semantic_difference_score: float = 0.0
+    case_priority: str = "normal"
+
 logger = logging.getLogger(__name__)
 
 

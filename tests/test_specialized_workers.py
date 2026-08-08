@@ -1,6 +1,7 @@
 """Tests for specialized evaluation workers."""
 
 
+import dataclasses
 import pytest
 
 from glyph.specialized_workers.aggregator import (
@@ -54,31 +55,31 @@ def sample_evidence():
         trial_id="test_trial_001",
         run_id="test_run_001",
         case_id="test_case_001",
-        tool_calls=[
+        tool_calls=(
             {
                 "tool_name": "python_interpreter",
                 "arguments": {"code": "print('hello')"},
                 "confirmed": True,
-            }
-        ],
-        retrieval_events=[
+            },
+        ),
+        retrieval_events=(
             {
                 "query_hash": "abc123",
                 "source_ids": ["doc1", "doc2"],
                 "duration_ms": 100,
-            }
-        ],
-        graph_nodes=[
+            },
+        ),
+        graph_nodes=(
             {
                 "node_id": "node_1",
                 "node_type": "tool_call",
                 "inputs": {"tool": "python_interpreter"},
-                "outputs": {"result": "success"},
+                "outputs": {"result": "completed"},
                 "duration_ms": 50,
-            }
-        ],
+            },
+        ),
         final_output={"text": "Hello world", "confidence": 0.9},
-        security_events=[],
+        security_events=(),
         latency_ms=500.0,
         token_usage={"input_tokens": 100, "output_tokens": 50},
         cost_usd=0.01,
@@ -100,7 +101,7 @@ class TestToolEvaluator:
             trial_id="test_trial",
             run_id="test_run",
             case_id="test_case",
-            tool_calls=[],
+            tool_calls=(),
         )
         policy = ToolPolicy()
         evaluator = ToolEvaluator(policy=policy)
@@ -130,10 +131,13 @@ class TestToolEvaluator:
     
     def test_evaluates_excessive_tool_calls(self, sample_evidence):
         """Test evaluation of excessive tool calls."""
-        sample_evidence.tool_calls = [
-            {"tool_name": "python_interpreter", "arguments": {}, "confirmed": True}
-            for _ in range(25)
-        ]
+        sample_evidence = dataclasses.replace(
+            sample_evidence,
+            tool_calls=tuple(
+                {"tool_name": "python_interpreter", "arguments": {}, "confirmed": True}
+                for _ in range(25)
+            )
+        )
         policy = ToolPolicy(max_tool_calls=20)
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -157,7 +161,7 @@ class TestRetrievalEvaluator:
             trial_id="test_trial",
             run_id="test_run",
             case_id="test_case",
-            retrieval_events=[],
+            retrieval_events=(),
         )
         policy = RetrievalPolicy()
         evaluator = RetrievalEvaluator(policy=policy)
@@ -202,7 +206,7 @@ class TestGraphEvaluator:
             trial_id="test_trial",
             run_id="test_run",
             case_id="test_case",
-            graph_nodes=[],
+            graph_nodes=(),
         )
         policy = GraphPolicy()
         evaluator = GraphEvaluator(policy=policy)
@@ -210,7 +214,7 @@ class TestGraphEvaluator:
     
     def test_evaluates_compliant_graph(self, sample_evidence):
         """Test evaluation of compliant graph execution."""
-        sample_evidence.metadata["terminal_reason"] = "success"
+        sample_evidence.metadata["terminal_reason"] = "completed"
         policy = GraphPolicy()
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -261,7 +265,7 @@ class TestOutputEvaluator:
     
     def test_evaluates_missing_required_fields(self, sample_evidence):
         """Test evaluation of missing required fields."""
-        sample_evidence.final_output = {"text": "Hello"}  # Missing required "confidence"
+        sample_evidence = dataclasses.replace(sample_evidence, final_output={"text": "Hello"})  # Missing required "confidence"
         policy = OutputPolicy(required_fields={"text", "confidence"})
         evaluator = OutputEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -290,7 +294,7 @@ class TestSecurityEvaluator:
     
     def test_evaluates_secret_exposure(self, sample_evidence):
         """Test evaluation of secret exposure."""
-        sample_evidence.final_output = {"text": "API key: sk-1234567890abcdef1234567890abcdef"}
+        sample_evidence = dataclasses.replace(sample_evidence, final_output={"text": "API key: sk-1234567890abcdef1234567890abcdef"})
         policy = SecurityPolicy(block_secret_exposure=True)
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -330,7 +334,7 @@ class TestPerformanceEvaluator:
     
     def test_evaluates_excessive_latency(self, sample_evidence):
         """Test evaluation of excessive latency."""
-        sample_evidence.latency_ms = 35000.0  # 35 seconds
+        sample_evidence = dataclasses.replace(sample_evidence, latency_ms=35000.0)  # 35 seconds
         policy = PerformancePolicy(max_total_latency_ms=30000)
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
@@ -340,7 +344,7 @@ class TestPerformanceEvaluator:
     
     def test_evaluates_excessive_cost(self, sample_evidence):
         """Test evaluation of excessive cost."""
-        sample_evidence.cost_usd = 2.0
+        sample_evidence = dataclasses.replace(sample_evidence, cost_usd=2.0)
         policy = PerformancePolicy(max_cost_usd=1.0)
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
