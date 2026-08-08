@@ -156,12 +156,12 @@ class ResultAggregator:
             policy_version=self.policy_version,
             # Architecture-compliant fields
             deterministic_grades={
-                "passed": sum(1 for r in worker_results.values() if r.passed and r.grader_mode.value == "deterministic"),
-                "failed": sum(1 for r in worker_results.values() if not r.passed and r.grader_mode.value == "deterministic"),
+                "passed": sum(1 for r in worker_results.values() if r.passed and r.grader_mode == "deterministic"),
+                "failed": sum(1 for r in worker_results.values() if not r.passed and r.grader_mode == "deterministic"),
             },
             ai_grades={
-                "evaluated": sum(1 for r in worker_results.values() if r.grader_mode.value == "model_judge"),
-                "skipped": sum(1 for r in worker_results.values() if r.grader_mode.value != "model_judge"),
+                "evaluated": sum(1 for r in worker_results.values() if r.grader_mode == "model_judge"),
+                "skipped": sum(1 for r in worker_results.values() if r.grader_mode != "model_judge"),
             },
             token_usage={
                 "live_tokens": 0,  # Would be populated from execution context
@@ -227,11 +227,11 @@ class ResultAggregator:
                 "score": result.score,
                 "normalized_score": normalized_scores[worker_type],
                 "passed": result.passed,
-                "severity": result.severity.value,
+                "severity": result.severity,
                 "reason_code": result.reason_code,
                 "reason_message": result.reason_message,
                 "worker_version": result.worker_version,
-                "grader_mode": result.grader_mode.value,
+                "grader_mode": result.grader_mode,
                 "confidence": result.confidence,
             }
         
@@ -252,7 +252,7 @@ class ResultAggregator:
                 "worker_type": worker_type.value,
                 "reason_code": result.reason_code,
                 "reason_message": result.reason_message,
-                "severity": result.severity.value,
+                "severity": result.severity,
                 "score": result.score,
             }
             

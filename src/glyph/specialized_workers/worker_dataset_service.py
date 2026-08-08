@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -282,7 +282,7 @@ class DatasetService:
             dataset_name=dataset_name,
             version=version,
             generation_mode=config.mode,
-            generation_config=config.model_dump(),
+            generation_config=asdict(config),
             status=DatasetStatus.DRAFT,
         )
         

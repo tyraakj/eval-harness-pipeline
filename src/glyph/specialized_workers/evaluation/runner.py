@@ -197,6 +197,7 @@ class EvaluationRunner:
                         record = await self._run_trial(
                             active_run_id, case, dataset_hash, repetition_index
                         )
+                        record = self._bound_trial_record(record)
                         self.telemetry.record_trial(record, target_version=self.target.version)
                         self.pipeline_tracer.record_case_complete(record)
                     await self.writer.append(
@@ -425,6 +426,10 @@ class EvaluationRunner:
         finally:
             async with self.pipeline_tracer.span(PipelineStage.SANDBOX_DESTROY):
                 sandbox_cleanup = await self._cleanup_sandbox(sandbox, sandbox_cleanup)
+                if sandbox_cleanup.attempted and not sandbox_cleanup.succeeded:
+                    status = TrialStatus.ERROR
+                    error_type = "SandboxCleanupError"
+                    error_message = sandbox_cleanup.error_message
             duration_ms = int((time.monotonic() - monotonic_start) * 1000)
             input_hash = content_hash(canonical_json(case.input))
         
@@ -440,11 +445,13 @@ class EvaluationRunner:
             started_at=started_at,
             duration_ms=duration_ms,
             score=score,
+            result=result,
             grades=grades,
             sandbox=sandbox,
             sandbox_cleanup=sandbox_cleanup,
             provenance=provenance,
             tracked_metrics=tracked_metrics,
+            metrics=self._metric_values(result, duration_ms, tracked_metrics),
             input_hash=input_hash,
         )
 

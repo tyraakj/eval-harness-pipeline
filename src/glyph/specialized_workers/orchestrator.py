@@ -113,7 +113,7 @@ class EvaluationOrchestrator:
         # Identify critical failures
         critical_failures = [
             result for result in worker_results.values()
-            if not result.passed and result.severity.value in ("critical", "error")
+            if not result.passed and result.severity in ("critical", "error")
         ]
         
         # Collect errors
@@ -124,7 +124,7 @@ class EvaluationOrchestrator:
                     "worker_type": worker_type.value,
                     "reason_code": result.reason_code,
                     "reason_message": result.reason_message,
-                    "severity": result.severity.value,
+                    "severity": result.severity,
                 })
         
         # Calculate summary metrics
