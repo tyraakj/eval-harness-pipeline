@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 from pydantic import JsonValue
 
-from glyph.security.contracts import RunContext
-from glyph.grading.graders import ExactMatchGrader, OutcomeStateGrader
 from glyph.core.domain_models import (
     Budget,
     EvalCase,
@@ -19,6 +17,8 @@ from glyph.core.domain_models import (
     TrialRecord,
 )
 from glyph.evaluation.runner import EvaluationRunner
+from glyph.grading.graders import ExactMatchGrader, OutcomeStateGrader
+from glyph.security.contracts import RunContext
 
 
 class Target:

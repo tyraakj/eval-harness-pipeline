@@ -1,59 +1,21 @@
 """Tests for zero-token replay evaluation architecture."""
 
-import pytest
 from datetime import UTC, datetime
+
+import pytest
 
 from glyph.specialized_workers.artifact import (
     ArtifactStatus,
     EvaluationArtifact,
     ExecutionMode,
     ModelManifest,
-    ReplayBundle,
     UsageMetrics,
-)
-from glyph.specialized_workers.infra.cache import (
-    CacheEntry,
-    CacheLookupResult,
-    CacheRouter,
-    ContentAddressedCache,
-)
-from glyph.specialized_workers.infra.executors import (
-    ExecutionContext,
-    ExecutionResult,
-    LiveExecutor,
-    ReplayExecutor,
-    RunOrchestrator,
-)
-from glyph.specialized_workers.infra.storage_interface_layers import (
-    InMemoryObjectStorage,
-    InMemoryPostgreSQLStorage,
-    InMemoryRedisStorage,
-    ProgressEvent,
-    RunMetadata,
-    StorageManager,
 )
 from glyph.specialized_workers.evaluators.baseline_evaluator import (
     BaselineComparator,
-    BaselineRun,
     BaselineService,
-    CandidateRun,
     CandidateService,
     ComparisonResult,
-)
-from glyph.specialized_workers.grader_router import (
-    GraderRouter,
-    RoutingCriteria,
-    RoutingDecision,
-    SelectiveEvaluationPipeline,
-)
-from glyph.specialized_workers.worker_dataset_service import (
-    Case,
-    DatasetGenerator,
-    DatasetService,
-    DatasetStatus,
-    DatasetVersion,
-    GenerationConfig,
-    GenerationMode,
 )
 from glyph.specialized_workers.gates.ai_decision_gates import (
     AIJudgeGateChain,
@@ -61,13 +23,38 @@ from glyph.specialized_workers.gates.ai_decision_gates import (
     AIJudgeResult,
     ConfidenceControlGate,
     CostControlGate,
-    DecisionGate,
     GateDecision,
-    GateResult,
     GateType,
     PostResultGate,
     PreInvocationGate,
     QualityControlGate,
+)
+from glyph.specialized_workers.grader_router import (
+    GraderRouter,
+    RoutingCriteria,
+    RoutingDecision,
+)
+from glyph.specialized_workers.infra.cache import (
+    ContentAddressedCache,
+)
+from glyph.specialized_workers.infra.executors import (
+    ExecutionContext,
+    LiveExecutor,
+    ReplayExecutor,
+)
+from glyph.specialized_workers.infra.storage_layers import (
+    InMemoryObjectStorage,
+    InMemoryPostgreSQLStorage,
+    InMemoryRedisStorage,
+    ProgressEvent,
+    RunMetadata,
+    StorageManager,
+)
+from glyph.specialized_workers.worker_dataset_service import (
+    DatasetService,
+    DatasetStatus,
+    GenerationConfig,
+    GenerationMode,
 )
 
 
@@ -1052,7 +1039,7 @@ class TestAIDecisionGates:
         gate = PostResultGate("test_post_result")
         
         # Create a WorkerResult with prohibited reason code
-        from glyph.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
+        from glyph.specialized_workers.base import GraderMode, Severity, WorkerResult, WorkerType
         
         worker_result = WorkerResult(
             evaluation_id="eval_123",
@@ -1100,7 +1087,7 @@ class TestAIDecisionGates:
         gate = QualityControlGate("test_quality")
         
         # Create AI result with suspicious pattern
-        from glyph.specialized_workers.base import WorkerResult, WorkerType, GraderMode, Severity
+        from glyph.specialized_workers.base import GraderMode, Severity, WorkerResult, WorkerType
         
         worker_result = WorkerResult(
             evaluation_id="eval_123",
