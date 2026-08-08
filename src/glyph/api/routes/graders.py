@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-
+from fastapi import APIRouter, Depends, Request
+from glyph.api.rate_limit import limiter
 from glyph.schemas.grader_schemas import GraderListResponse
 from glyph.services.grader_service import GraderService
 
@@ -11,6 +11,10 @@ router = APIRouter()
 
 
 @router.get("", response_model=GraderListResponse)
-async def list_graders() -> GraderListResponse:
+@limiter.limit("120/minute")
+async def list_graders(
+    request: Request,
+    grader_service: GraderService = Depends(GraderService)
+) -> GraderListResponse:
     """List available grader types."""
-    return GraderService.list_graders()
+    return grader_service.list_graders()
