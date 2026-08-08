@@ -8,12 +8,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
-
 from glyph.specialized_workers.base import (
-    Severity,
     WorkerResult,
-    WorkerType,
 )
 
 logger = logging.getLogger(__name__)

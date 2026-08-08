@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from glyph.grading.comparison import Comparison, compare
 from glyph.core.domain_models import (
     ReleaseDecision,
     ReleasePolicy,
     RunSummary,
     SuiteType,
 )
+from glyph.grading.comparison import Comparison, compare
 
 
 @dataclass(frozen=True, slots=True)
