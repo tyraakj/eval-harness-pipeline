@@ -167,7 +167,7 @@ class BaselineService:
         self._baselines[dataset_version] = baseline
         
         # Store metadata
-        from glyph.specialized_workers.infra.storage_interface_layers import RunMetadata
+        from glyph.specialized_workers.infra.storage_layers import RunMetadata
         metadata = RunMetadata(
             run_id=run_id,
             project_id="baseline",
@@ -266,7 +266,7 @@ class CandidateService:
         self._candidates[run_id] = candidate
         
         # Store metadata
-        from glyph.specialized_workers.infra.storage_interface_layers import RunMetadata
+        from glyph.specialized_workers.infra.storage_layers import RunMetadata
         metadata = RunMetadata(
             run_id=run_id,
             project_id="candidate",

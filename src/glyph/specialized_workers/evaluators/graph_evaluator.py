@@ -8,6 +8,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
+from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
@@ -17,7 +18,6 @@ from glyph.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.specialized_workers.artifact import EvaluationArtifact
 
 
 @dataclass
@@ -195,7 +195,7 @@ class GraphEvaluator(BaseSpecializedWorker):
             transition = (from_node, to_node)
             allowed = transition not in self.policy.prohibited_transitions
             if self.policy.required_transitions:
-                allowed = allowed and transition in self.policy.required_transitions or not self.policy.required_transitions
+                allowed = (allowed and transition in self.policy.required_transitions) or not self.policy.required_transitions
             
             # Check if transition is unexpected
             unexpected = transition not in self.policy.required_transitions if self.policy.required_transitions else False

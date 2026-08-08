@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
     BaseArtifactWorker,
     BaseSpecializedWorker,
@@ -17,7 +18,6 @@ from glyph.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.specialized_workers.artifact import EvaluationArtifact
 
 
 @dataclass
@@ -132,7 +132,7 @@ class OutputEvaluator(BaseSpecializedWorker):
                     )
             except (json.JSONDecodeError, TypeError) as e:
                 is_valid_json = False
-                schema_errors.append(f"JSON validation error: {str(e)}")
+                schema_errors.append(f"JSON validation error: {e!s}")
         
         # Check required fields
         missing_fields = []
