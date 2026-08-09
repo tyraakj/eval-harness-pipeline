@@ -810,3 +810,77 @@ def print_failed_tests_inline(completed_trials: list[TrialRecord]) -> None:
     
     console.print(table)
 
+
+def format_compare_targets_rich(summary_a: RunSummary, summary_b: RunSummary, comparison: Comparison, cases: list[EvalCase]) -> None:
+    """Format target comparison - plain English, no internal codes."""
+    console.print()
+    
+    a_pass_rate = comparison.baseline_pass_rate
+    b_pass_rate = comparison.candidate_pass_rate
+    
+    console.print(f"  Version A:  {a_pass_rate:.0%} passed")
+    console.print(f"  Version B:  {b_pass_rate:.0%} passed")
+    
+    delta = comparison.pass_rate_delta
+    delta_sym = "+" if delta > 0 else ""
+    winner = "Version B is better" if delta > 0 else "Version A is better" if delta < 0 else "Tie"
+    
+    console.print(f"  Difference: {delta_sym}{delta:.0%}  ({winner})")
+    console.print()
+
+    if comparison.improved:
+        console.print("Tests where Version B improved:")
+        for change in comparison.improved:
+            case_id = getattr(change, "case_id", str(change))
+            console.print(f"  {case_id.ljust(26)} failed → passed")
+        console.print()
+        
+    if comparison.regressed:
+        console.print("Tests where Version B regressed:")
+        for change in comparison.regressed:
+            case_id = getattr(change, "case_id", str(change))
+            console.print(f"  {case_id.ljust(26)} passed → failed")
+        console.print()
+
+
+def format_security_findings_rich(audit: dict) -> None:
+    """Format and display security audit findings."""
+    console.print()
+    _rule("SECURITY AUDIT FINDINGS", style="glyph.danger" if audit.get("findings") else "glyph.success")
+    console.print()
+    
+    _kv("Run ID", audit.get("run_id", "N/A"))
+    _kv("Status", audit.get("status", "N/A"))
+    _kv("Total Findings", str(len(audit.get("findings", []))))
+    
+    console.print()
+    
+    if not audit.get("findings"):
+        console.print("  [glyph.success]No security vulnerabilities detected.[/glyph.success]")
+        return
+        
+    table = Table(box=None, padding=(0, 2), show_header=True)
+    table.add_column("Severity", style="bold")
+    table.add_column("Finding Type", style="cyan")
+    table.add_column("Case ID", style="dim")
+    table.add_column("Description")
+    
+    for finding in audit.get("findings", []):
+        severity = finding.get("severity", "medium").upper()
+        sev_style = {
+            "CRITICAL": "bold red",
+            "HIGH": "red",
+            "MEDIUM": "yellow",
+            "LOW": "cyan"
+        }.get(severity, "white")
+        
+        table.add_row(
+            f"[{sev_style}]{severity}[/{sev_style}]",
+            finding.get("finding_type", "Unknown"),
+            finding.get("case_id", "N/A"),
+            finding.get("description", "No description")
+        )
+        
+    console.print(table)
+    console.print()
+    _rule()

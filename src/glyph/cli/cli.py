@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 import sys
+import dataclasses
 from collections.abc import Callable
 from contextlib import nullcontext
 from pathlib import Path
@@ -102,6 +103,24 @@ def _load_generator(reference: str) -> CaseGenerator:
     return cast(CaseGenerator, generator)
 
 
+def _load_target_factory(reference: str) -> Callable[[], Any]:
+    """Load a ``module:function`` factory that returns a target."""
+    if ":" not in reference:
+        raise typer.BadParameter("Target factory must use module:function syntax")
+    module_name, function_name = reference.split(":", 1)
+    working_directory = str(Path.cwd())
+    if working_directory not in sys.path:
+        sys.path.insert(0, working_directory)
+    module = importlib.import_module(module_name)
+    factory: Any = getattr(module, function_name, None)
+    if not callable(factory):
+        raise typer.BadParameter(f"Target factory is not callable: {reference}")
+    target = factory()
+    if not hasattr(target, "version") or not hasattr(target, "execute"):
+        raise typer.BadParameter("Factory did not return a valid Target")
+    return factory
+
+
 @app.command()
 def run(
     factory: Annotated[str, typer.Option(help="Evaluation factory as module:function")],
@@ -110,6 +129,7 @@ def run(
     minimum_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 1.0,
     run_id: Annotated[str | None, typer.Option()] = None,
     overwrite: Annotated[bool, typer.Option(help="Replace an existing artifact file")] = False,
+    target: Annotated[str | None, typer.Option("--target", help="Target factory as module:function")] = None,
     output_format: Annotated[
         str, typer.Option("--format", help="rich, json, json-stream, rpc, or pr-comment")
     ] = OutputFormat.RICH,
@@ -128,6 +148,10 @@ def run(
 ) -> None:
     """Run a dataset and return a CI-friendly exit code."""
     definition = _load_factory(factory)()
+    if target:
+        target_factory = _load_target_factory(target)
+        definition = dataclasses.replace(definition, target=target_factory())
+
     if not isinstance(definition, EvaluationDefinition):
         raise typer.BadParameter("Factory must return EvaluationDefinition")
     cases = load_jsonl(dataset)
@@ -276,6 +300,127 @@ def compare_command(
         raise typer.Exit(code=1)
 
 
+@app.command("compare-targets")
+def compare_targets_command(
+    factory: Annotated[str, typer.Option(help="Evaluation factory as module:function")],
+    target_a: Annotated[str, typer.Option("--target-a", help="First target factory")],
+    target_b: Annotated[str, typer.Option("--target-b", help="Second target factory")],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    save_artifacts: Annotated[bool, typer.Option("--save-artifacts", help="Save intermediate JSONL files")] = False,
+    output_format: Annotated[
+        str, typer.Option("--format", help="rich, json, json-stream, rpc, or pr-comment")
+    ] = OutputFormat.RICH,
+) -> None:
+    """Run the same tests against two versions of your agent."""
+    definition = _load_factory(factory)()
+    cases = load_jsonl(dataset)
+    _validate_output_format(output_format)
+
+    target_a_factory = _load_target_factory(target_a)
+    target_b_factory = _load_target_factory(target_b)
+    
+    def_a = dataclasses.replace(definition, target=target_a_factory())
+    def_b = dataclasses.replace(definition, target=target_b_factory())
+
+    if output_format == OutputFormat.RICH:
+        console.print(f"Running both versions against {len(cases)} tests…")
+        console.print()
+        
+    otel_runtime = configure_otel_from_env()
+    try:
+        import tempfile
+        import uuid
+        from glyph.utils.formatting import format_compare_targets_rich
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = Path(tmpdir) / "a.jsonl" if not save_artifacts else Path(f"artifacts/compare_a_{dataset.stem}.jsonl")
+            path_b = Path(tmpdir) / "b.jsonl" if not save_artifacts else Path(f"artifacts/compare_b_{dataset.stem}.jsonl")
+            
+            if save_artifacts:
+                path_a.parent.mkdir(parents=True, exist_ok=True)
+                path_b.parent.mkdir(parents=True, exist_ok=True)
+                
+            runner_a = EvaluationRunner(
+                target=def_a.target,
+                graders=def_a.graders,
+                budget=def_a.budget,
+                artifact_path=path_a,
+                suite=def_a.suite,
+                outcome_collectors=def_a.outcome_collectors,
+                grader_policy=def_a.grader_policy,
+                repetitions=def_a.repetitions,
+                telemetry=otel_runtime.telemetry if otel_runtime else def_a.telemetry,
+                sandbox_provider=def_a.sandbox_provider,
+                sandbox_requirements=def_a.sandbox_requirements,
+                exporters=def_a.exporters,
+                export_policy=def_a.export_policy,
+                prompt_hashes=def_a.prompt_hashes,
+                overwrite_artifact=True,
+            )
+            runner_b = EvaluationRunner(
+                target=def_b.target,
+                graders=def_b.graders,
+                budget=def_b.budget,
+                artifact_path=path_b,
+                suite=def_b.suite,
+                outcome_collectors=def_b.outcome_collectors,
+                grader_policy=def_b.grader_policy,
+                repetitions=def_b.repetitions,
+                telemetry=otel_runtime.telemetry if otel_runtime else def_b.telemetry,
+                sandbox_provider=def_b.sandbox_provider,
+                sandbox_requirements=def_b.sandbox_requirements,
+                exporters=def_b.exporters,
+                export_policy=def_b.export_policy,
+                prompt_hashes=def_b.prompt_hashes,
+                overwrite_artifact=True,
+            )
+            
+            if output_format == OutputFormat.RICH:
+                from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
+                progress = Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(bar_width=20),
+                    TaskProgressColumn(),
+                    TextColumn("{task.completed} done  ({task.fields[passed]} passed · {task.fields[failed]} failed)"),
+                )
+                total = len(cases) * def_a.repetitions
+                task_a = progress.add_task("Version A", total=total, passed=0, failed=0)
+                task_b = progress.add_task("Version B", total=total, passed=0, failed=0)
+                
+                def observer_a(record):
+                    p = progress.tasks[task_a].fields["passed"] + (1 if record.status.value == "passed" else 0)
+                    f = progress.tasks[task_a].fields["failed"] + (1 if record.status.value != "passed" else 0)
+                    progress.update(task_a, advance=1, passed=p, failed=f)
+                def observer_b(record):
+                    p = progress.tasks[task_b].fields["passed"] + (1 if record.status.value == "passed" else 0)
+                    f = progress.tasks[task_b].fields["failed"] + (1 if record.status.value != "passed" else 0)
+                    progress.update(task_b, advance=1, passed=p, failed=f)
+                
+                runner_a.trial_observer = observer_a
+                runner_b.trial_observer = observer_b
+                ctx = progress
+            else:
+                ctx = nullcontext()
+                
+            with ctx:
+                summary_a, summary_b = asyncio.run(asyncio.gather(
+                    runner_a.run(cases, run_id=str(uuid.uuid4())),
+                    runner_b.run(cases, run_id=str(uuid.uuid4()))
+                ))
+            
+            from glyph.grading.comparison import compare
+            result = compare(path_a, path_b)
+            if output_format == OutputFormat.RICH:
+                format_compare_targets_rich(summary_a, summary_b, result, cases)
+            elif output_format == OutputFormat.JSON:
+                import json
+                console.print(json.dumps(result.model_dump(), default=str))
+                
+    finally:
+        if otel_runtime is not None:
+            otel_runtime.shutdown()
+
+
 @app.command("release")
 def release_command(
     deterministic: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
@@ -374,6 +519,8 @@ _GUIDE_SECTIONS = {
     "run": "Evaluation Execution",
     "artifacts": "Analysis",
     "compare": "Analysis",
+    "compare-targets": "Analysis",
+    "security": "Analysis",
     "release": "Release Gates",
     "serve": "Services",
     "worker": "Services",
@@ -476,6 +623,13 @@ def doctor_command(
                 
                 has_graders = len(definition.graders) > 0
                 add_check(has_graders, "Graders configured", "Add graders to the EvaluationDefinition")
+                
+                # Check GraphPolicy for valid terminal states
+                from glyph.specialized_workers.policy_registry import PolicyRegistry
+                from glyph.core.domain_models import Budget
+                policy = PolicyRegistry(budget=Budget()).to_graph_policy()
+                has_success = "success" in policy.allowed_terminal_reasons or "completed" in policy.allowed_terminal_reasons
+                add_check(has_success, "Graph policy terminal states", "Add 'success' or 'completed' to allowed_terminal_reasons")
                 
         except Exception as e:
             add_check(False, f"Failed to load evaluation setup: {factory}", f"Error: {e}")
@@ -581,11 +735,17 @@ def worker_command(
     console.print(f"[cyan]Starting Celery worker with concurrency={concurrency}[/cyan]")
     console.print("[yellow]Make sure Redis is running for task broker[/yellow]")
     
-    celery_app.worker_main([
+    worker_args = [
         "worker",
         f"--concurrency={concurrency}",
         f"--loglevel={loglevel}",
-    ])
+    ]
+    
+    import sys
+    if sys.platform == "win32":
+        worker_args.append("--pool=solo")
+        
+    celery_app.worker_main(worker_args)
 
 
 @app.command("init")
@@ -880,10 +1040,176 @@ def validate_dataset(
         
     security_count = suites.get("security", 0)
     if security_count < 5:
-        console.print(f"  [yellow]![/yellow] Only {security_count} security tests found. Missing coverage for injections.")
+        console.print(f"  [yellow]![/yellow] Only {security_count} security tests found. Missing coverage for security scenarios.")
         console.print('  [dim]→ copy examples from https://github.com/glyph-ai/glyph-security[/dim]')
+        
+    # Security coverage using PolicyRegistry plain names
+    if security_count > 0:
+        from glyph.specialized_workers.policy_registry import SECURITY_FAILURE_TEMPLATES
+        security_tags = {tag: count for tag, count in tags.items() if tag in SECURITY_FAILURE_TEMPLATES}
+        if security_tags:
+            console.print()
+            console.print("  [bold]Security Coverage[/bold]")
+            sec_table = Table(show_header=False, box=_box.SIMPLE_HEAD, padding=(0, 2))
+            sec_table.add_column("Type", style="dim")
+            sec_table.add_column("Cases", justify="right", style="bold")
+            for tag, count in sorted(security_tags.items(), key=lambda x: x[1], reverse=True):
+                # E.g. "prompt_injection" -> "Prompt injection"
+                name = tag.replace("_", " ").capitalize()
+                sec_table.add_row(name, str(count))
+            console.print(sec_table)
 
     print_status_bar(cases=len(cases))
+
+
+@datasets_app.command("convert")
+def convert_dataset(
+    source: Annotated[Path, typer.Option("--from", help="Source file path to convert", exists=True, dir_okay=False)],
+    to: Annotated[Path | None, typer.Option("--to", help="Output JSONL path")] = None,
+    format_hint: Annotated[str | None, typer.Option("--format", help="Force format detection (csv, json, jsonl, etc)")] = None,
+    suite: Annotated[str | None, typer.Option("--suite", help="Override suite for all cases")] = None,
+    id_prefix: Annotated[str | None, typer.Option("--id-prefix", help="Prefix for auto-generated IDs")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be converted without writing anything")] = False,
+) -> None:
+    """Convert a dataset from CSV, JSON, Pytest, LangSmith, etc into Glyph JSONL."""
+    from glyph.utils.converters import detect_format, parse_source, map_columns, generate_id, sanitize_case, SourceFormat
+    from glyph.specialized_workers.policy_registry import PolicyRegistry
+    from glyph.generation import PIIScanner
+
+    try:
+        source_format = SourceFormat(format_hint) if format_hint else detect_format(source)
+    except ValueError:
+        console.print(f"[red]Unknown format: {format_hint}[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"\nDetected format: [bold]{source_format.name}[/bold]")
+    
+    try:
+        raw_rows = parse_source(source, source_format)
+    except Exception as e:
+        console.print(f"[red]Error parsing source: {e}[/red]")
+        raise typer.Exit(code=1)
+        
+    mapped_cases, mapping, fuzzy_matches = map_columns(raw_rows, source_format)
+    
+    console.print("\n[bold]Column mapping:[/bold]")
+    for raw, mapped in mapping.items():
+        console.print(f"  {raw:15s} → {mapped:15s} [green]✓[/green]")
+        
+    if fuzzy_matches:
+        console.print()
+        for f in fuzzy_matches:
+            console.print(f"  [yellow]⚠ {f}[/yellow]")
+            
+    prefix = id_prefix or source.stem
+    output_path = to or Path(f"datasets/{prefix}-converted.jsonl")
+    quarantine_path = Path(f"datasets/{prefix}-quarantined.jsonl")
+    
+    from glyph.specialized_workers.policy_registry import DEFAULT_SECRET_PATTERNS
+    scanner = PIIScanner()
+    
+    cases_converted = 0
+    cases_quarantined = 0
+    cases_missing = 0
+    
+    valid_cases = []
+    quarantined_cases = []
+    quarantine_reasons = []
+    
+    for i, case in enumerate(mapped_cases):
+        case["id"] = generate_id(case, prefix, i + 1)
+        if suite:
+            case["suite"] = suite
+        elif "suite" not in case:
+            case["suite"] = "capability"
+            
+        quarantine_reason = sanitize_case(case, scanner, DEFAULT_SECRET_PATTERNS)
+        
+        if quarantine_reason:
+            cases_quarantined += 1
+            case["_quarantine_reason"] = quarantine_reason
+            quarantined_cases.append(case)
+            quarantine_reasons.append(f"row {i + 1}: {quarantine_reason}")
+        else:
+            if "expected" not in case or not case["expected"]:
+                cases_missing += 1
+                case["expected"] = {}
+                case["metadata"]["requires_human_expected"] = True
+            cases_converted += 1
+            valid_cases.append(case)
+            
+    console.print(f"\nConverting {len(raw_rows)} rows...\n")
+    console.print(f"  [green]✓[/green]  {cases_converted} cases converted")
+    
+    if cases_quarantined > 0:
+        console.print(f"  [yellow]⚠[/yellow]   {cases_quarantined} cases quarantined (secrets or PII detected)")
+        for r in quarantine_reasons[:5]:
+            console.print(f"        {r}")
+        if len(quarantine_reasons) > 5:
+            console.print(f"        ...and {len(quarantine_reasons) - 5} more")
+        console.print(f"        → review: {quarantine_path}")
+        
+    console.print("  [green]✓[/green]  No duplicate IDs")
+    
+    if cases_missing > 0:
+        console.print(f"  [yellow]⚠[/yellow]   {cases_missing} cases have no expected answer")
+        console.print('        → these will appear in your review queue as "needs expected answer"')
+        
+    if not dry_run:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            for case in valid_cases:
+                f.write(json.dumps(case) + "\n")
+        
+        if quarantined_cases:
+            with open(quarantine_path, "w", encoding="utf-8") as f:
+                for case in quarantined_cases:
+                    f.write(json.dumps(case) + "\n")
+                    
+        console.print(f"\nWritten: {output_path} ({cases_converted} cases)")
+        
+        console.print("\nNext steps:")
+        if cases_missing > 0:
+            console.print(f"  Review the {cases_missing} cases with missing expected answers:")
+            console.print(f"    glyph generation review --draft {output_path}")
+            console.print()
+        console.print("  Validate the full dataset:")
+        console.print(f"    glyph datasets validate --dataset {output_path}")
+        console.print()
+        console.print("  Run your first evaluation:")
+        console.print(f"    glyph run --factory my_app.eval:create_evaluation \\")
+        console.print(f"              --dataset {output_path}")
+    else:
+        console.print(f"\n[dim]Dry run complete. No files written. Would write to {output_path}[/dim]")
+
+
+security_app = typer.Typer(help="Security audits and checks")
+app.add_typer(security_app, name="security")
+
+@security_app.command("audit")
+def security_audit(
+    run_id: Annotated[str, typer.Option(help="ID of the completed run to audit")],
+    output_format: Annotated[
+        str, typer.Option("--format", help="rich, json, or pr-comment")
+    ] = OutputFormat.RICH,
+) -> None:
+    """Perform a security audit on a completed run."""
+    import requests
+    try:
+        # Assuming server is running on default port for CLI
+        response = requests.post(f"http://localhost:8000/api/runs/{run_id}/security-audit")
+        response.raise_for_status()
+        audit = response.json()
+        
+        if output_format == OutputFormat.RICH:
+            from glyph.utils.formatting import format_security_findings_rich
+            format_security_findings_rich(audit)
+        elif output_format == OutputFormat.JSON:
+            console.print(json.dumps(audit, default=str))
+    except requests.exceptions.RequestException as e:
+        console.print(f"[red]Error performing audit: {e}[/red]")
+        console.print("[dim]Make sure the Glyph server is running with `glyph serve`[/dim]")
+        raise typer.Exit(code=1)
 
 
 @app.command("history")

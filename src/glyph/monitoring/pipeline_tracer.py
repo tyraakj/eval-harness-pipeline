@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from glyph.core.domain_models import EvalCase, TrialRecord
@@ -122,8 +122,9 @@ class PipelineTrace:
 class PipelineTracer:
     """Internal tracer for Glyph's evaluation pipeline."""
 
-    def __init__(self, output_path: Path | None = None) -> None:
+    def __init__(self, output_path: Path | None = None, trace_format: Literal["flat", "graph"] = "graph") -> None:
         self.output_path = output_path
+        self.trace_format = trace_format
         self.current_trace: PipelineTrace | None = None
         self._span_stack: list[PipelineSpan] = []
 
@@ -208,7 +209,75 @@ class PipelineTracer:
         
         trace_dir.mkdir(parents=True, exist_ok=True)
         trace_file = trace_dir / f"trace-{self.current_trace.run_id}.json"
-        trace_file.write_text(json.dumps(self.current_trace.to_dict(), indent=2) + "\n")
+        
+        if self.trace_format == "graph":
+            data = self._to_graph_dict()
+        else:
+            data = self.current_trace.to_dict()
+            
+        trace_file.write_text(json.dumps(data, indent=2) + "\n")
+
+    def _to_graph_dict(self) -> dict[str, Any]:
+        """Convert trace to a graph dictionary with deduplicated nodes."""
+        if not self.current_trace:
+            return {}
+
+        import hashlib
+
+        nodes: dict[str, Any] = {}
+        roots: list[str] = []
+        branches: list[list[str]] = []
+        span_to_node: dict[str, str] = {}
+
+        for span in self.current_trace.spans:
+            parent_node_id = span_to_node.get(span.parent_id) if span.parent_id else None
+            
+            node_content = {
+                "kind": span.stage.value,
+                "parent": parent_node_id,
+                "data": span.attributes,
+            }
+            content_str = json.dumps(node_content, sort_keys=True)
+            node_hash = hashlib.sha256(content_str.encode()).hexdigest()[:12]
+            node_id = f"node_{node_hash}"
+            
+            if node_id not in nodes:
+                node_data: dict[str, Any] = {
+                    "kind": span.stage.value,
+                    "hash": node_hash,
+                    "data": span.attributes,
+                }
+                if parent_node_id:
+                    node_data["parent"] = parent_node_id
+                if span.events:
+                    node_data["events"] = span.events
+                nodes[node_id] = node_data
+                    
+            span_to_node[span.span_id] = node_id
+
+        parent_ids = {s.parent_id for s in self.current_trace.spans if s.parent_id}
+        leaf_spans = [s for s in self.current_trace.spans if s.span_id not in parent_ids]
+
+        for leaf in leaf_spans:
+            branch: list[str] = []
+            curr_id: str | None = leaf.span_id
+            while curr_id:
+                branch.append(span_to_node[curr_id])
+                curr_span = next(s for s in self.current_trace.spans if s.span_id == curr_id)
+                curr_id = curr_span.parent_id
+            
+            branch.reverse()
+            branches.append(branch)
+            if branch[0] not in roots:
+                roots.append(branch[0])
+
+        return {
+            "run_id": self.current_trace.run_id,
+            "nodes": nodes,
+            "roots": roots,
+            "branches": branches,
+            "metadata": self.current_trace.metadata
+        }
 
     def get_trace_summary(self) -> dict[str, Any]:
         """Get a summary of the current trace."""
