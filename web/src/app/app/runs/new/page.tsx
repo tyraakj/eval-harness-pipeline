@@ -22,6 +22,7 @@ export default function NewRunPage() {
   // Form State
   const [datasetPath, setDatasetPath] = useState('');
   const [factory, setFactory] = useState('');
+  const [targetFactory, setTargetFactory] = useState('');
   const [outputPath, setOutputPath] = useState(`artifacts/run-${Date.now()}.jsonl`);
   const [timeoutSeconds, setTimeoutSeconds] = useState(60);
   const [maxToolCalls, setMaxToolCalls] = useState(20);
@@ -79,7 +80,8 @@ export default function NewRunPage() {
           factory,
           dataset: datasetPath,
           output: outputPath,
-          workers: useExtraWorkers,
+          enable_specialized_workers: useExtraWorkers,
+          target_factory: targetFactory || null,
           budget: {
             timeout_seconds: timeoutSeconds,
             max_tool_calls: maxToolCalls,
@@ -123,7 +125,8 @@ export default function NewRunPage() {
           factory,
           dataset: datasetPath,
           output: outputPath,
-          workers: useExtraWorkers,
+          enable_specialized_workers: useExtraWorkers,
+          target_factory: targetFactory || null,
           budget: {
             timeout_seconds: timeoutSeconds,
             max_tool_calls: maxToolCalls,
@@ -208,6 +211,20 @@ export default function NewRunPage() {
             )}
             <div className={styles.helperText}>
               This is the Python function that describes how your agent is tested. Example: my_app.eval:create_evaluation
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>Agent override (optional)</label>
+            <input 
+              type="text" 
+              className={styles.input} 
+              placeholder="my_app.agent:create_agent"
+              value={targetFactory}
+              onChange={(e) => setTargetFactory(e.target.value)}
+            />
+            <div className={styles.helperText}>
+              Provide a different target factory to test against (e.g. for comparison).
             </div>
           </div>
 

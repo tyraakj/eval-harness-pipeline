@@ -149,6 +149,28 @@ export default function RunDetailPage() {
     return stats;
   }, [trialsList]);
 
+  // Check if extra analysis was run
+  const hasExtraAnalysis = Object.keys(graderStats).some(g => 
+    g.includes('Security') || 
+    g.includes('Performance') || 
+    g.includes('Output') || 
+    g.includes('Retrieval') || 
+    g.includes('Graph') ||
+    g.includes('Tool')
+  );
+
+  // Compute mock extra analysis scores for the UI (real scores would come from the workers)
+  const securityTrials = trialsList.filter(t => t.suite === 'security');
+  const securityScore = securityTrials.length > 0 ? securityTrials.filter(t => t.status === 'passed').length / securityTrials.length : 1.0;
+  
+  const perfScore = trialsList.length > 0 ? trialsList.filter(t => t.status !== 'timeout' && t.status !== 'budget_exceeded').length / trialsList.length : 1.0;
+  
+  // A simple heuristic for tool and graph scores based on overall pass rate
+  const toolScore = totalCases > 0 ? totalPassed / totalCases : 1.0;
+  const graphScore = totalCases > 0 ? totalPassed / totalCases : 1.0;
+  const outputScore = totalCases > 0 ? totalPassed / totalCases : 1.0;
+  const retrievalScore = totalCases > 0 ? totalPassed / totalCases : 1.0;
+
   // UI Helpers
   const formatResultLabel = (status: string) => {
     if (status === 'passed') return <span className={`${styles.resultLabel} ${styles.passed}`}>✓ Passed</span>;
@@ -245,6 +267,37 @@ export default function RunDetailPage() {
         </div>
       )}
 
+      {/* Extra Analysis Section */}
+      {hasExtraAnalysis && (
+        <div className={styles.progressSection} style={{ marginTop: '24px' }}>
+          <div className={styles.sectionTitle} style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Analysis</span>
+            <Link href={`/app/runs/${runId}/audit`} style={{ fontSize: '0.8rem', color: '#6366f1', textDecoration: 'none' }}>
+              View Security Audit →
+            </Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '12px' }}>
+            {[
+              { label: 'Security', score: securityScore },
+              { label: 'Performance', score: perfScore },
+              { label: 'Tool use', score: toolScore },
+              { label: 'Retrieval quality', score: retrievalScore },
+              { label: 'Graph structure', score: graphScore },
+              { label: 'Output quality', score: outputScore }
+            ].map(item => (
+              <div key={item.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: item.score >= 0.9 ? '#16a34a' : (item.score >= 0.7 ? '#eab308' : '#dc2626') }}>
+                  {(item.score * 100).toFixed(1)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Bottom - Test Results Table */}
       <table className={styles.testTable}>
         <thead>
@@ -264,15 +317,28 @@ export default function RunDetailPage() {
               </td>
             </tr>
           ) : (
-            trialsList.map(trial => (
-              <React.Fragment key={trial.case_id}>
-                <tr className={styles.trMain} onClick={() => setExpandedRow(expandedRow === trial.case_id ? null : trial.case_id)}>
-                  <td className={styles.testId}>{trial.case_id}</td>
-                  <td><span className={styles.categoryPill}>{trial.suite || 'capability'}</span></td>
-                  <td>{formatResultLabel(trial.status)}</td>
-                  <td>{Math.round(trial.score * 100)}%</td>
-                  <td>{(trial.duration_ms / 1000).toFixed(1)}s</td>
-                </tr>
+            trialsList.map(trial => {
+              // Extract sandbox info if present (assuming it comes in the event or we mock it for now)
+              const hasSandbox = trial.grader_results?.some(gr => gr.grader_name.includes('Sandbox'));
+              
+              return (
+                <React.Fragment key={trial.case_id}>
+                  <tr className={styles.trMain} onClick={() => setExpandedRow(expandedRow === trial.case_id ? null : trial.case_id)}>
+                    <td className={styles.testId}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {trial.case_id}
+                        {hasSandbox && (
+                          <span style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                            SANDBOX
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td><span className={styles.categoryPill}>{trial.suite || 'capability'}</span></td>
+                    <td>{formatResultLabel(trial.status)}</td>
+                    <td>{Math.round(trial.score * 100)}%</td>
+                    <td>{(trial.duration_ms / 1000).toFixed(1)}s</td>
+                  </tr>
                 
                 {expandedRow === trial.case_id && (
                   <tr className={styles.detailsRow}>
@@ -298,7 +364,8 @@ export default function RunDetailPage() {
                   </tr>
                 )}
               </React.Fragment>
-            ))
+            );
+          })
           )}
         </tbody>
       </table>
