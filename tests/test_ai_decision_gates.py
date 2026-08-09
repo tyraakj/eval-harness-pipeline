@@ -361,7 +361,7 @@ def main():
         test_ai_judge_gate_chain_spending_tracking()
         
         return 0
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         return 1
