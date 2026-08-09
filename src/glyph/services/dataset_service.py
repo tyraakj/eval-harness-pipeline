@@ -43,7 +43,7 @@ class DatasetService:
     def _count_cases(self, file_path: Path) -> int:
         count = 0
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
                         count += 1
@@ -59,7 +59,7 @@ class DatasetService:
             
         cases = []
         try:
-            with open(dataset_path, "r", encoding="utf-8") as f:
+            with open(dataset_path, encoding="utf-8") as f:
                 for i, line in enumerate(f):
                     if i < offset:
                         continue
@@ -95,7 +95,7 @@ class DatasetService:
         seen_ids = set()
         
         try:
-            with open(dataset_path, "r", encoding="utf-8") as f:
+            with open(dataset_path, encoding="utf-8") as f:
                 for line_idx, line in enumerate(f):
                     line = line.strip()
                     if not line:
@@ -120,10 +120,10 @@ class DatasetService:
                             tagged_cases += 1
                             
                     except Exception as e:
-                        errors.append(f"Line {line_idx + 1}: failed to parse as EvalCase - {str(e)}")
+                        errors.append(f"Line {line_idx + 1}: failed to parse as EvalCase - {e!s}")
                         
         except Exception as e:
-            errors.append(f"Failed to read file: {str(e)}")
+            errors.append(f"Failed to read file: {e!s}")
             
         if case_count > 0 and (tagged_cases / case_count) < 0.5:
             warnings.append(f"Only {tagged_cases}/{case_count} tests have tags (< 50%)")
