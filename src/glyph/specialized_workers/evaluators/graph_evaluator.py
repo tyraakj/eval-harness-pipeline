@@ -23,6 +23,9 @@ from glyph.specialized_workers.base import (
 @dataclass
 class GraphPolicy:
     """Policy configuration for graph evaluation."""
+    partial_scores: dict[str, float]
+    success_message_template: str
+
     required_nodes: set[str] = field(default_factory=set)
     prohibited_nodes: set[str] = field(default_factory=set)
     required_transitions: set[tuple[str, str]] = field(default_factory=set)
@@ -31,8 +34,9 @@ class GraphPolicy:
     max_total_nodes: int = 50
     max_loops: int = 10
     require_terminal_state: bool = True
-    allowed_terminal_reasons: set[str] = field(default_factory=lambda: {"success", "completed"})
-
+    allowed_terminal_reasons: set[str] = field(default_factory=lambda: {"success", "completed", "complete"})
+    node_input_schemas: dict[str, list[str]] = field(default_factory=dict)
+    node_output_schemas: dict[str, list[str]] = field(default_factory=dict)
 
 @dataclass
 class NodeAnalysis:
@@ -81,7 +85,9 @@ class GraphEvaluator(BaseSpecializedWorker):
     
     def __init__(self, version: str = "1.0.0", policy: GraphPolicy | None = None):
         super().__init__(version)
-        self.policy = policy or GraphPolicy()
+        if policy is None:
+            raise ValueError("GraphPolicy must be provided")
+        self.policy = policy
     
     def _get_worker_type(self) -> WorkerType:
         return WorkerType.GRAPH_COMPLIANCE
@@ -275,8 +281,8 @@ class GraphEvaluator(BaseSpecializedWorker):
     
     def _check_required_inputs(self, node_type: str, inputs: dict[str, Any]) -> bool:
         """Check if required inputs are present for a node type."""
-        # In production, this would check against actual node schemas
-        required_inputs = {
+        # Use policy schemas if configured, else default to old hardcoded schemas for backward compat
+        required_inputs = self.policy.node_input_schemas or {
             "tool_call": ["tool_name", "arguments"],
             "decision": ["context"],
             "action": ["type"],
@@ -289,8 +295,8 @@ class GraphEvaluator(BaseSpecializedWorker):
     
     def _check_expected_outputs(self, node_type: str, outputs: dict[str, Any]) -> bool:
         """Check if expected outputs are present for a node type."""
-        # In production, this would check against actual node schemas
-        expected_outputs = {
+        # Use policy schemas if configured, else default to old hardcoded schemas for backward compat
+        expected_outputs = self.policy.node_output_schemas or {
             "tool_call": ["result"],
             "decision": ["next_action"],
             "action": ["status"],
@@ -359,7 +365,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         # Critical failures
         if findings["prohibited_nodes_visited"]:
             return (
-                0.0,
+                self.policy.partial_scores["prohibited_nodes"],
                 False,
                 Severity.CRITICAL,
                 "prohibited_nodes_visited",
@@ -368,7 +374,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         
         if findings["prohibited_transitions_taken"]:
             return (
-                0.0,
+                self.policy.partial_scores["prohibited_transitions"],
                 False,
                 Severity.CRITICAL,
                 "prohibited_transitions_taken",
@@ -378,7 +384,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         # High severity failures
         if findings["failed_nodes"]:
             return (
-                0.5,
+                self.policy.partial_scores["node_failures"],
                 False,
                 Severity.ERROR,
                 "node_failures",
@@ -387,7 +393,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         
         if findings["skipped_nodes"]:
             return (
-                0.6,
+                self.policy.partial_scores["required_nodes_skipped"],
                 False,
                 Severity.ERROR,
                 "required_nodes_skipped",
@@ -398,7 +404,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         if self.policy.require_terminal_state:
             if graph_analysis.terminal_reason not in self.policy.allowed_terminal_reasons:
                 return (
-                    0.5,
+                    self.policy.partial_scores["invalid_terminal_state"],
                     False,
                     Severity.ERROR,
                     "invalid_terminal_state",
@@ -408,7 +414,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         # Medium severity failures
         if findings["total_nodes"] > self.policy.max_total_nodes:
             return (
-                0.7,
+                self.policy.partial_scores["excessive_nodes"],
                 False,
                 Severity.WARNING,
                 "excessive_nodes",
@@ -417,7 +423,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         
         if graph_analysis.loop_count > self.policy.max_loops:
             return (
-                0.7,
+                self.policy.partial_scores["excessive_loops"],
                 False,
                 Severity.WARNING,
                 "excessive_loops",
@@ -432,7 +438,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         }
         if excessive_repeats:
             return (
-                0.8,
+                self.policy.partial_scores["excessive_node_repeats"],
                 False,
                 Severity.WARNING,
                 "excessive_node_repeats",
@@ -442,7 +448,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         # Low severity issues
         if findings["unexpected_paths"]:
             return (
-                0.85,
+                self.policy.partial_scores["unexpected_paths"],
                 False,
                 Severity.INFO,
                 "unexpected_paths",
@@ -453,7 +459,7 @@ class GraphEvaluator(BaseSpecializedWorker):
         if len(findings["required_nodes_visited"]) < len(self.policy.required_nodes):
             missing = self.policy.required_nodes - set(findings["required_nodes_visited"])
             return (
-                0.9,
+                self.policy.partial_scores["missing_required_nodes"],
                 False,
                 Severity.WARNING,
                 "missing_required_nodes",
@@ -466,7 +472,7 @@ class GraphEvaluator(BaseSpecializedWorker):
             True,
             Severity.INFO,
             "graph_compliant",
-            f"Graph execution compliant (nodes: {findings['total_nodes']}, loops: {graph_analysis.loop_count})"
+            self.policy.success_message_template.format(nodes=findings['total_nodes'], loops=graph_analysis.loop_count)
         )
 
 

@@ -23,6 +23,9 @@ from glyph.specialized_workers.base import (
 @dataclass
 class OutputPolicy:
     """Policy configuration for output evaluation."""
+    partial_scores: dict[str, float]
+    success_message: str
+
     require_json_schema: bool = False
     json_schema: dict[str, Any] | None = None
     required_fields: set[str] = field(default_factory=set)
@@ -58,7 +61,9 @@ class OutputEvaluator(BaseSpecializedWorker):
     
     def __init__(self, version: str = "1.0.0", policy: OutputPolicy | None = None):
         super().__init__(version)
-        self.policy = policy or OutputPolicy()
+        if policy is None:
+            raise ValueError("OutputPolicy must be provided")
+        self.policy = policy
     
     def _get_worker_type(self) -> WorkerType:
         return WorkerType.OUTPUT_QUALITY
@@ -361,7 +366,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         # Critical failures
         if not analysis.prohibited_fields_absent:
             return (
-                0.0,
+                self.policy.partial_scores["prohibited_fields_present"],
                 False,
                 Severity.CRITICAL,
                 "prohibited_fields_present",
@@ -371,7 +376,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         # High severity failures
         if self.policy.require_json_schema and not analysis.is_valid_json:
             return (
-                0.0,
+                self.policy.partial_scores["format_violation"],
                 False,
                 Severity.ERROR,
                 "invalid_json",
@@ -380,7 +385,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         
         if self.policy.require_json_schema and self.policy.json_schema and not analysis.schema_valid:
             return (
-                0.0,
+                self.policy.partial_scores["format_violation"],
                 False,
                 Severity.ERROR,
                 "schema_violation",
@@ -389,7 +394,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         
         if not analysis.required_fields_present:
             return (
-                0.5,
+                self.policy.partial_scores["missing_required_fields"],
                 False,
                 Severity.ERROR,
                 "missing_required_fields",
@@ -399,7 +404,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         # Medium severity failures
         if not analysis.length_compliant:
             return (
-                0.7,
+                self.policy.partial_scores["length_violation"],
                 False,
                 Severity.WARNING,
                 "length_violation",
@@ -408,7 +413,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         
         if self.policy.require_citations and not analysis.has_citations:
             return (
-                0.7,
+                self.policy.partial_scores["missing_citations"],
                 False,
                 Severity.WARNING,
                 "missing_citations",
@@ -417,7 +422,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         
         if self.policy.require_grounding and not analysis.is_grounded:
             return (
-                0.7,
+                self.policy.partial_scores["not_grounded"],
                 False,
                 Severity.WARNING,
                 "not_grounded",
@@ -426,7 +431,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         
         if self.policy.strict_instruction_compliance and not analysis.instruction_compliant:
             return (
-                0.6,
+                self.policy.partial_scores["instruction_noncompliance"],
                 False,
                 Severity.WARNING,
                 "instruction_noncompliance",
@@ -436,7 +441,7 @@ class OutputEvaluator(BaseSpecializedWorker):
         # Low severity issues
         if analysis.has_citations and not analysis.citations_valid:
             return (
-                0.85,
+                self.policy.partial_scores["invalid_citations"],
                 False,
                 Severity.INFO,
                 "invalid_citations",
@@ -449,7 +454,7 @@ class OutputEvaluator(BaseSpecializedWorker):
             True,
             Severity.INFO,
             "output_compliant",
-            f"Output compliant (length: {findings['output_length']} chars)"
+            self.policy.success_message
         )
 
 

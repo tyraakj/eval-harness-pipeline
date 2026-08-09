@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from glyph.specialized_workers.artifact import EvaluationArtifact
@@ -22,12 +22,17 @@ from glyph.specialized_workers.base import (
 @dataclass
 class RetrievalPolicy:
     """Policy configuration for retrieval evaluation."""
+    partial_scores: dict[str, float]
+    f1_excellent_message_template: str
+    f1_acceptable_message_template: str
     require_citations: bool = True
     allow_hallucination: bool = False
     max_latency_ms: int = 5000
     min_relevant_sources: int = 1
     require_source_grounding: bool = True
     deduplicate_sources: bool = True
+    f1_excellent_threshold: float = 0.9
+    f1_acceptable_threshold: float = 0.7
 
 
 @dataclass
@@ -52,7 +57,9 @@ class RetrievalEvaluator(BaseSpecializedWorker):
     
     def __init__(self, version: str = "1.0.0", policy: RetrievalPolicy | None = None):
         super().__init__(version)
-        self.policy = policy or RetrievalPolicy()
+        if policy is None:
+            raise ValueError("RetrievalPolicy must be provided")
+        self.policy = policy
     
     def _get_worker_type(self) -> WorkerType:
         return WorkerType.RETRIEVAL_QUALITY
@@ -239,7 +246,9 @@ class RetrievalEvaluator(BaseSpecializedWorker):
         ]
         
         return {
-            "total_retrievals": total_retrievals,
+            "total_retrieval_events": total_retrievals,
+            "all_citations_valid": all(a.citations_correct for a in analyses),
+            "total_unique_sources": len(set(s for a in analyses for s in a.retrieved_source_ids)),
             "average_precision": avg_precision,
             "average_recall": avg_recall,
             "average_f1": avg_f1,
@@ -281,10 +290,19 @@ class RetrievalEvaluator(BaseSpecializedWorker):
                 f"Answers outside retrieved evidence: {', '.join(findings['out_of_domain_answers'])}"
             )
         
+        if findings["total_retrieval_events"] == 0 and self.policy.require_citations:
+            return (
+                self.policy.partial_scores["no_retrieval"],
+                False,
+                Severity.CRITICAL,
+                "no_retrieval",
+                "No retrieval events found but citations are required"
+            )
+        
         # High severity failures
         if findings["incorrect_citations"]:
             return (
-                0.5,
+                self.policy.partial_scores.get("incorrect_citations", 0.5),
                 False,
                 Severity.ERROR,
                 "incorrect_citations",
@@ -293,7 +311,7 @@ class RetrievalEvaluator(BaseSpecializedWorker):
         
         if findings["average_latency_ms"] > self.policy.max_latency_ms:
             return (
-                0.6,
+                self.policy.partial_scores.get("slow_retrieval", 0.6),
                 False,
                 Severity.ERROR,
                 "slow_retrieval",
@@ -301,28 +319,37 @@ class RetrievalEvaluator(BaseSpecializedWorker):
             )
         
         # Medium severity failures
+        if not findings["all_citations_valid"] and self.policy.require_citations:
+            return (
+                self.policy.partial_scores["no_retrieval"],
+                False,
+                Severity.ERROR,
+                "invalid_citations",
+                "Some citations do not match retrieved sources"
+            )
+        
+        if findings["total_unique_sources"] < self.policy.min_relevant_sources:
+            return (
+                self.policy.partial_scores["poor_recall"],
+                False,
+                Severity.WARNING,
+                "insufficient_sources",
+                f"Not enough unique sources retrieved: {findings['total_unique_sources']} < {self.policy.min_relevant_sources}"
+            )
+        
         if findings["missing_citations"] and self.policy.require_citations:
             return (
-                0.7,
+                self.policy.partial_scores.get("missing_citations", 0.7),
                 False,
                 Severity.WARNING,
                 "missing_citations",
                 f"Missing citations: {', '.join(findings['missing_citations'])}"
             )
         
-        if findings["insufficient_sources"]:
-            return (
-                0.7,
-                False,
-                Severity.WARNING,
-                "insufficient_sources",
-                f"Insufficient relevant sources: {', '.join(findings['insufficient_sources'])}"
-            )
-        
         # Low severity issues
         if findings["duplicate_retrievals"] and self.policy.deduplicate_sources:
             return (
-                0.8,
+                self.policy.partial_scores.get("duplicate_retrievals", 0.8),
                 False,
                 Severity.WARNING,
                 "duplicate_retrievals",
@@ -331,7 +358,7 @@ class RetrievalEvaluator(BaseSpecializedWorker):
         
         if findings["unused_sources"] and self.policy.require_source_grounding:
             return (
-                0.85,
+                self.policy.partial_scores.get("unused_sources", 0.85),
                 False,
                 Severity.INFO,
                 "unused_sources",
@@ -340,29 +367,29 @@ class RetrievalEvaluator(BaseSpecializedWorker):
         
         # Score based on F1
         avg_f1 = findings["average_f1"]
-        if avg_f1 >= 0.9:
+        if avg_f1 >= self.policy.f1_excellent_threshold:
             return (
                 1.0,
                 True,
                 Severity.INFO,
                 "excellent_retrieval",
-                f"Excellent retrieval quality (F1: {avg_f1:.2f})"
+                self.policy.f1_excellent_message_template.format(f1=avg_f1)
             )
-        elif avg_f1 >= 0.7:
+        elif avg_f1 >= self.policy.f1_acceptable_threshold:
             return (
                 avg_f1,
                 True,
                 Severity.INFO,
                 "good_retrieval",
-                f"Good retrieval quality (F1: {avg_f1:.2f})"
+                self.policy.f1_acceptable_message_template.format(f1=avg_f1)
             )
         else:
             return (
                 avg_f1,
                 False,
                 Severity.WARNING,
-                "poor_retrieval",
-                f"Poor retrieval quality (F1: {avg_f1:.2f})"
+                "marginal_retrieval",
+                f"Retrieval quality is marginal (F1: {avg_f1:.2f})"
             )
 
 

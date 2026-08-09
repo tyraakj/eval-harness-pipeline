@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from glyph.specialized_workers.artifact import EvaluationArtifact
@@ -22,6 +22,9 @@ from glyph.specialized_workers.base import (
 @dataclass
 class PerformancePolicy:
     """Policy configuration for performance evaluation."""
+    partial_scores: dict[str, float]
+    success_message: str
+
     # Latency thresholds
     max_total_latency_ms: float = 30000  # 30 seconds
     max_time_to_first_token_ms: float = 5000  # 5 seconds
@@ -40,6 +43,8 @@ class PerformancePolicy:
     max_tool_calls: int = 20
     max_retries: int = 3
     max_memory_mb: int = 512
+    memory_bytes_per_token: int = 4
+    memory_mb_per_tool_call: float = 0.5
     
     # Efficiency metrics
     min_tokens_per_second: float = 10.0
@@ -72,7 +77,9 @@ class PerformanceEvaluator(BaseSpecializedWorker):
     
     def __init__(self, version: str = "1.0.0", policy: PerformancePolicy | None = None):
         super().__init__(version)
-        self.policy = policy or PerformancePolicy()
+        if policy is None:
+            raise ValueError("PerformancePolicy must be provided")
+        self.policy = policy
     
     def _get_worker_type(self) -> WorkerType:
         return WorkerType.PERFORMANCE
@@ -203,15 +210,14 @@ class PerformanceEvaluator(BaseSpecializedWorker):
     
     def _estimate_memory_usage(self, evidence: EvaluationEvidence) -> float:
         """Estimate memory usage based on tokens and context."""
-        # Rough estimation: 1 token â‰ˆ 4 bytes, plus overhead
         total_tokens = (
             evidence.token_usage.get("input_tokens", 0) +
             evidence.token_usage.get("output_tokens", 0)
         )
-        base_memory = total_tokens * 4 / 1024 / 1024  # Convert to MB
+        base_memory = total_tokens * self.policy.memory_bytes_per_token / 1024 / 1024  # Convert to MB
         
         # Add overhead for tool calls and graph state
-        overhead = len(evidence.tool_calls) * 0.5 + len(evidence.graph_nodes) * 0.1
+        overhead = len(evidence.tool_calls) * self.policy.memory_mb_per_tool_call + len(evidence.graph_nodes) * 0.1
         
         return base_memory + overhead
     
@@ -368,18 +374,18 @@ class PerformanceEvaluator(BaseSpecializedWorker):
         total_violations = findings["total_violations"]
         
         # Critical failures
-        if analysis.cost_violations:
+        if findings["cost_usd"] > self.policy.max_cost_usd:
             return (
-                0.0,
+                self.policy.partial_scores["cost_violations"],
                 False,
                 Severity.ERROR,
-                "cost_violations",
-                f"Cost violations: {', '.join(analysis.cost_violations[:2])}"
+                "cost_limit_exceeded",
+                f"Cost ${findings['cost_usd']:.4f} > ${self.policy.max_cost_usd:.4f}"
             )
         
         if analysis.resource_violations:
             return (
-                0.0,
+                self.policy.partial_scores.get("resource_violations", 0.0),
                 False,
                 Severity.ERROR,
                 "resource_violations",
@@ -387,32 +393,32 @@ class PerformanceEvaluator(BaseSpecializedWorker):
             )
         
         # High severity failures
-        if analysis.latency_violations:
+        if findings["total_latency_ms"] > self.policy.max_total_latency_ms:
             return (
-                0.5,
+                self.policy.partial_scores["latency_exceeded"],
                 False,
-                Severity.WARNING,
-                "latency_violations",
-                f"Latency violations: {', '.join(analysis.latency_violations[:2])}"
+                Severity.ERROR,
+                "latency_exceeded",
+                f"Total latency {findings['total_latency_ms']}ms > {self.policy.max_total_latency_ms}ms"
             )
         
-        if analysis.token_violations:
+        if findings["time_to_first_token_ms"] > self.policy.max_time_to_first_token_ms:
             return (
-                0.6,
+                self.policy.partial_scores["time_to_first_token_exceeded"],
                 False,
                 Severity.WARNING,
-                "token_violations",
-                f"Token violations: {', '.join(analysis.token_violations[:2])}"
+                "time_to_first_token_exceeded",
+                f"Time to first token {findings['time_to_first_token_ms']}ms > {self.policy.max_time_to_first_token_ms}ms"
             )
         
         # Medium severity failures
-        if analysis.efficiency_violations:
+        if findings["tokens_per_second"] < self.policy.min_tokens_per_second:
             return (
-                0.7,
+                self.policy.partial_scores["efficiency_below_minimum"],
                 False,
-                Severity.INFO,
-                "efficiency_violations",
-                f"Efficiency violations: {', '.join(analysis.efficiency_violations[:2])}"
+                Severity.WARNING,
+                "efficiency_below_minimum",
+                f"Tokens per second {findings['tokens_per_second']:.2f} < {self.policy.min_tokens_per_second}"
             )
         
         # Calculate performance score based on efficiency
@@ -432,12 +438,13 @@ class PerformanceEvaluator(BaseSpecializedWorker):
                 f"Excellent performance (score: {overall_score:.2f})"
             )
         elif overall_score >= 0.6:
+            # All checks passed
             return (
-                overall_score,
+                1.0,
                 True,
                 Severity.INFO,
-                "good_performance",
-                f"Good performance (score: {overall_score:.2f})"
+                "performance_compliant",
+                self.policy.success_message
             )
         else:
             return (
