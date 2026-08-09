@@ -15,6 +15,7 @@ from rich.table import Table
 
 from glyph.core.domain_models import RunSummary, TrialRecord
 from glyph.evaluation.definition import EvaluationDefinition
+from glyph.evaluation.spec import SpecError, load_evaluation_spec
 from glyph.evaluation.runner import EvaluationRunner
 from glyph.generation import (
     CaseGenerator,
@@ -123,9 +124,10 @@ def _load_target_factory(reference: str) -> Callable[[], Any]:
 
 @app.command()
 def run(
-    factory: Annotated[str, typer.Option(help="Evaluation factory as module:function")],
-    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
-    output: Annotated[Path, typer.Option(dir_okay=False)] = Path("artifacts/results.jsonl"),
+    factory: Annotated[str | None, typer.Option(help="Legacy evaluation factory as module:function")] = None,
+    dataset: Annotated[Path | None, typer.Option(dir_okay=False, readable=True)] = None,
+    output: Annotated[Path | None, typer.Option(dir_okay=False)] = None,
+    spec: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, readable=True, help="Portable evaluation YAML spec")] = None,
     minimum_pass_rate: Annotated[float, typer.Option(min=0.0, max=1.0)] = 1.0,
     run_id: Annotated[str | None, typer.Option()] = None,
     overwrite: Annotated[bool, typer.Option(help="Replace an existing artifact file")] = False,
@@ -146,8 +148,24 @@ def run(
         typer.Option("--workers", help="Run extra analysis checks"),
     ] = False,
 ) -> None:
-    """Run a dataset and return a CI-friendly exit code."""
-    definition = _load_factory(factory)()
+    """Run an evaluation spec (or a legacy Python factory) and return a CI-friendly exit code."""
+    if spec is not None:
+        if factory or dataset or output:
+            raise typer.BadParameter("--spec cannot be combined with --factory, --dataset, or --output")
+        try:
+            evaluation_spec = load_evaluation_spec(spec)
+            definition = evaluation_spec.definition()
+        except SpecError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        dataset, output = evaluation_spec.dataset, evaluation_spec.artifact
+    else:
+        if factory is None or dataset is None:
+            raise typer.BadParameter("Use --spec, or provide both --factory and --dataset")
+        definition = _load_factory(factory)()
+        output = output or Path("artifacts/results.jsonl")
+    assert dataset is not None and output is not None
+    if not dataset.is_file():
+        raise typer.BadParameter(f"Dataset not found: {dataset}")
     if target:
         target_factory = _load_target_factory(target)
         definition = dataclasses.replace(definition, target=target_factory())
@@ -168,7 +186,7 @@ def run(
         console.print("  [bold]Checks[/bold]")
         
         has_cases = len(cases) > 0
-        console.print(f"  [green][PASS][/green] Evaluation setup loaded: {factory}")
+        console.print(f"  [green][PASS][/green] Evaluation setup loaded: {spec or factory}")
         console.print(f"  [{'green' if has_cases else 'red'}][{'PASS' if has_cases else 'FAIL'}][/{'green' if has_cases else 'red'}] Dataset ready ({len(cases)} tests)")
         
         has_folder = output.parent.exists() or output.parent == Path("")
@@ -236,39 +254,8 @@ def run(
 
     format_run_summary(summary, output_format)
 
-    if workers and output_format == OutputFormat.RICH:
-        trials_for_analysis = completed_trials if (not stream and completed_trials) else _load_trial_records(output)
-        
-        # Calculate real metrics
-        security_trials = [t for t in trials_for_analysis if t.suite.value == "security"]
-        security_score = sum(1 for t in security_trials if t.status.value == "passed") / len(security_trials) if security_trials else 1.0
-        
-        perf_score = sum(1 for t in trials_for_analysis if t.status.value not in ("timeout", "budget_exceeded")) / len(trials_for_analysis) if trials_for_analysis else 1.0
-        
-        tool_trials = [t for t in trials_for_analysis if t.result and t.result.usage and t.result.usage.tool_calls > 0]
-        tool_score = sum(1 for t in tool_trials if t.status.value == "passed") / len(tool_trials) if tool_trials else 1.0
-        
-        retrieval_trials = [t for t in trials_for_analysis if t.result and t.result.retrievals]
-        retrieval_score = sum(1 for t in retrieval_trials if t.status.value == "passed") / len(retrieval_trials) if retrieval_trials else 1.0
-        
-        graph_trials = [t for t in trials_for_analysis if t.result and t.result.loop and t.result.loop.iterations]
-        graph_score = sum(1 for t in graph_trials if t.status.value == "passed") / len(graph_trials) if graph_trials else 1.0
-        
-        cap_trials = [t for t in trials_for_analysis if t.suite.value == "capability"]
-        cap_score = sum(t.score for t in cap_trials) / len(cap_trials) if cap_trials else 1.0
-
-        console.print()
-        console.print("  [bold]Analysis[/bold]")
-        analysis = Table(box=None, padding=(0, 2), show_header=False)
-        analysis.add_column("Category", style="cyan")
-        analysis.add_column("Score", justify="right")
-        analysis.add_row("  Security", f"{security_score * 100:.1f}%")
-        analysis.add_row("  Performance", f"{perf_score * 100:.1f}%")
-        analysis.add_row("  Tool use", f"{tool_score * 100:.1f}%")
-        analysis.add_row("  Retrieval quality", f"{retrieval_score * 100:.1f}%")
-        analysis.add_row("  Graph structure", f"{graph_score * 100:.1f}%")
-        analysis.add_row("  Output quality", f"{cap_score * 100:.1f}%")
-        console.print(analysis)
+    if workers:
+        console.print("[yellow]--workers is deprecated. Define observable checks and rubric criteria in the evaluation spec.[/yellow]")
 
     if output_format == OutputFormat.RICH:
         duration = (summary.finished_at - summary.started_at).total_seconds()
@@ -817,8 +804,37 @@ def create_evaluation() -> EvaluationDefinition:
         budget=Budget(timeout_seconds=10, max_concurrency=2),
         sandbox_requirements=SandboxRequirements(required=False),
     )
+
+
+def create_evaluation_target() -> LangGraphTarget:
+    graph = StateGraph(State)
+    graph.add_node("answer", answer)
+    graph.add_edge(START, "answer")
+    return LangGraphTarget(graph.compile(), version="starter@1.0.0")
 '''
     (project_dir / "examples" / "evaluation.py").write_text(example_factory, encoding="utf-8")
+    evaluation_spec = '''schema_version: 1
+suite:
+  id: starter
+  version: 1.0.0
+  description: Starter evaluation suite
+target:
+  factory: examples.evaluation:create_evaluation_target
+dataset: datasets/example.jsonl
+artifact: artifacts/results.jsonl
+budget:
+  timeout_seconds: 10
+  max_concurrency: 2
+rubric:
+  pass_threshold: 1.0
+  criteria:
+    - id: answer-covers-request
+      description: The answer includes each case-specific required phrase
+      assertion: contains
+      expected_path: contains
+      required: true
+'''
+    (project_dir / "evaluation.yaml").write_text(evaluation_spec, encoding="utf-8")
     
     gitignore = """# Artifacts
 artifacts/
@@ -841,7 +857,7 @@ venv/
     console.print(f"  cd {name}")
     console.print("  glyph doctor")
     console.print("  glyph datasets validate --dataset datasets/example.jsonl")
-    console.print("  glyph run --factory examples.evaluation:create_evaluation --dataset datasets/example.jsonl")
+    console.print("  glyph run --spec evaluation.yaml")
 
 
 generation_app = typer.Typer(help="Generate, review, and promote synthetic evaluation datasets")

@@ -9,15 +9,7 @@ from typing import Any
 from celery import current_task
 from pydantic import ValidationError
 
-from glyph.specialized_workers.policy_registry import (
-    TOOL_DEFAULT_SCORES, TOOL_SUCCESS_MSG,
-    OUTPUT_DEFAULT_SCORES, OUTPUT_SUCCESS_MSG,
-    GRAPH_DEFAULT_SCORES, GRAPH_SUCCESS_MSG_TEMPLATE,
-    SECURITY_DEFAULT_SCORES, SECURITY_SUCCESS_MSG,
-    RETRIEVAL_DEFAULT_SCORES, RETRIEVAL_F1_EXCELLENT_MSG, RETRIEVAL_F1_ACCEPTABLE_MSG,
-    PERFORMANCE_DEFAULT_SCORES, PERFORMANCE_SUCCESS_MSG,
-)
-
+from glyph.core.domain_models import Budget
 from glyph.specialized_workers.aggregator import AggregationPolicy, ResultAggregator
 from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
@@ -25,14 +17,24 @@ from glyph.specialized_workers.base import (
     WorkerResult,
     WorkerType,
 )
-from glyph.specialized_workers.evaluators.graph_evaluator import GraphEvaluator
-from glyph.specialized_workers.evaluators.output_evaluator import OutputEvaluator
-from glyph.specialized_workers.evaluators.performance_evaluator import PerformanceEvaluator
-from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
-from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
-from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
+from glyph.specialized_workers.evaluators.graph_evaluator import GraphEvaluator, GraphPolicy
+from glyph.specialized_workers.evaluators.output_evaluator import OutputEvaluator, OutputPolicy
+from glyph.specialized_workers.evaluators.performance_evaluator import (
+    PerformanceEvaluator,
+    PerformancePolicy,
+)
+from glyph.specialized_workers.evaluators.retrieval_evaluator import (
+    RetrievalEvaluator,
+    RetrievalPolicy,
+)
+from glyph.specialized_workers.evaluators.security_evaluator import (
+    SecurityEvaluator,
+    SecurityPolicy,
+)
+from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator, ToolPolicy
 from glyph.specialized_workers.infra.celery_config import celery_app
 from glyph.specialized_workers.orchestrator import EvaluationOrchestrator, OrchestratorConfig
+from glyph.specialized_workers.policy_registry import PolicyRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +54,16 @@ def orchestrate_evaluation(
     try:
         # Parse evidence
         evidence = EvaluationEvidence(**evidence_dict)
-        
+
         # Parse config
         config = OrchestratorConfig(**config_dict) if config_dict else OrchestratorConfig()
-        
+
         # Create orchestrator
         orchestrator = EvaluationOrchestrator(config)
-        
+
         # Orchestrate evaluation
         result = orchestrator.orchestrate(evidence)
-        
+
         # Convert to dict for serialization
         return {
             "evaluation_id": result.evaluation_id,
@@ -70,15 +72,13 @@ def orchestrate_evaluation(
                 worker_type.value: result.model_dump()
                 for worker_type, result in result.worker_results.items()
             },
-            "critical_failures": [
-                failure.model_dump() for failure in result.critical_failures
-            ],
+            "critical_failures": [failure.model_dump() for failure in result.critical_failures],
             "errors": result.errors,
             "total_workers_ran": result.total_workers_ran,
             "total_workers_passed": result.total_workers_passed,
             "execution_order": [wt.value for wt in result.execution_order],
         }
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in orchestrate_evaluation: {e}")
         self.retry(exc=e)
@@ -101,18 +101,16 @@ def tool_evaluation(
     """Evaluate tool policy compliance."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.tool_evaluator import ToolPolicy
-        policy = ToolPolicy(**policy_dict) if policy_dict else ToolPolicy(
-            partial_scores=TOOL_DEFAULT_SCORES,
-            success_message=TOOL_SUCCESS_MSG,
+
+        policy = (
+            ToolPolicy(**policy_dict) if policy_dict else PolicyRegistry(Budget()).to_tool_policy()
         )
-        
+
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in tool_evaluation: {e}")
         self.retry(exc=e)
@@ -135,19 +133,18 @@ def retrieval_evaluation(
     """Evaluate retrieval quality."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalPolicy
-        policy = RetrievalPolicy(**policy_dict) if policy_dict else RetrievalPolicy(
-            partial_scores=RETRIEVAL_DEFAULT_SCORES,
-            f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG,
-            f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG,
+
+        policy = (
+            RetrievalPolicy(**policy_dict)
+            if policy_dict
+            else PolicyRegistry(Budget()).to_retrieval_policy()
         )
-        
+
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in retrieval_evaluation: {e}")
         self.retry(exc=e)
@@ -170,18 +167,18 @@ def graph_evaluation(
     """Evaluate graph compliance."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.graph_evaluator import GraphPolicy
-        policy = GraphPolicy(**policy_dict) if policy_dict else GraphPolicy(
-            partial_scores=GRAPH_DEFAULT_SCORES,
-            success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE,
+
+        policy = (
+            GraphPolicy(**policy_dict)
+            if policy_dict
+            else PolicyRegistry(Budget()).to_graph_policy()
         )
-        
+
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in graph_evaluation: {e}")
         self.retry(exc=e)
@@ -204,18 +201,18 @@ def output_evaluation(
     """Evaluate output quality."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.output_evaluator import OutputPolicy
-        policy = OutputPolicy(**policy_dict) if policy_dict else OutputPolicy(
-            partial_scores=OUTPUT_DEFAULT_SCORES,
-            success_message=OUTPUT_SUCCESS_MSG,
+
+        policy = (
+            OutputPolicy(**policy_dict)
+            if policy_dict
+            else PolicyRegistry(Budget()).to_output_policy()
         )
-        
+
         evaluator = OutputEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in output_evaluation: {e}")
         self.retry(exc=e)
@@ -238,18 +235,18 @@ def security_evaluation(
     """Evaluate security compliance."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.security_evaluator import SecurityPolicy
-        policy = SecurityPolicy(**policy_dict) if policy_dict else SecurityPolicy(
-            partial_scores=SECURITY_DEFAULT_SCORES,
-            success_message=SECURITY_SUCCESS_MSG,
+
+        policy = (
+            SecurityPolicy(**policy_dict)
+            if policy_dict
+            else PolicyRegistry(Budget()).to_security_policy()
         )
-        
+
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in security_evaluation: {e}")
         self.retry(exc=e)
@@ -272,18 +269,18 @@ def performance_evaluation(
     """Evaluate performance metrics."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
-        from glyph.specialized_workers.evaluators.performance_evaluator import PerformancePolicy
-        policy = PerformancePolicy(**policy_dict) if policy_dict else PerformancePolicy(
-            partial_scores=PERFORMANCE_DEFAULT_SCORES,
-            success_message=PERFORMANCE_SUCCESS_MSG,
+
+        policy = (
+            PerformancePolicy(**policy_dict)
+            if policy_dict
+            else PolicyRegistry(Budget()).to_performance_policy()
         )
-        
+
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in performance_evaluation: {e}")
         self.retry(exc=e)
@@ -306,7 +303,7 @@ def semantic_evaluation(
     """Perform semantic evaluation using AI judge (if implemented)."""
     try:
         evidence = EvaluationEvidence(**evidence_dict)
-        
+
         # This would integrate with AI judges for semantic evaluation
         # For now, return a placeholder result
         from glyph.specialized_workers.base import (
@@ -315,7 +312,7 @@ def semantic_evaluation(
             WorkerResult,
             WorkerType,
         )
-        
+
         result = WorkerResult(
             evaluation_id="semantic_eval",
             worker_type=WorkerType.OUTPUT_QUALITY,  # Reuse output type for semantic
@@ -330,9 +327,9 @@ def semantic_evaluation(
             grader_mode=GraderMode.MODEL_JUDGE,
             confidence=0.7,
         )
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in semantic_evaluation: {e}")
         self.retry(exc=e)
@@ -360,26 +357,24 @@ def aggregate_results(
         for worker_type_str, result_dict in worker_results_dict.items():
             worker_type = WorkerType(worker_type_str)
             worker_results[worker_type] = WorkerResult(**result_dict)
-        
+
         # Parse policy
         policy = AggregationPolicy(**policy_dict) if policy_dict else AggregationPolicy()
-        
+
         # Create aggregator
         aggregator = ResultAggregator(policy=policy)
-        
+
         # Aggregate results
         result = aggregator.aggregate(worker_results, trial_id)
-        
+
         return {
             "aggregation_id": result.aggregation_id,
             "trial_id": result.trial_id,
             "worker_results": {
-                wt.value: wr.model_dump()
-                for wt, wr in result.worker_results.items()
+                wt.value: wr.model_dump() for wt, wr in result.worker_results.items()
             },
             "normalized_scores": {
-                wt.value: score
-                for wt, score in result.normalized_scores.items()
+                wt.value: score for wt, score in result.normalized_scores.items()
             },
             "overall_score": result.overall_score,
             "domain_summary": result.domain_summary,
@@ -389,7 +384,7 @@ def aggregate_results(
             "release_rationale": result.release_rationale,
             "policy_version": result.policy_version,
         }
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in aggregate_results: {e}")
         self.retry(exc=e)
@@ -414,13 +409,13 @@ def export_results(
         # This would integrate with export systems (LangSmith, custom dashboards, etc.)
         # For now, log the result
         logger.info(f"Exporting results: {json.dumps(aggregated_result_dict, indent=2)}")
-        
+
         return {
             "export_id": current_task.request.id,
             "status": "completed",
             "message": "Results exported successfully",
         }
-    
+
     except Exception as e:
         logger.error(f"Error in export_results: {e}")
         self.retry(exc=e)
@@ -439,27 +434,27 @@ def replay_evaluation(
 ) -> dict[str, Any]:
     """
     Zero-token replay worker that reads evidence and runs deterministic graders.
-    
+
     This worker processes immutable artifacts without calling the model again.
     It can re-run tool-call policy checks, graph-node checks, retrieval metrics,
     schema validation, and other deterministic checks.
     """
     try:
         artifact = EvaluationArtifact(**artifact_dict)
-        
+
         # Extract evidence from artifact
-        
+
         # In a full implementation, this would instantiate the appropriate
         # artifact worker and run deterministic graders
         # For now, return a placeholder result indicating replay mode
-        
+
         from glyph.specialized_workers.base import (
             GraderMode,
             Severity,
             WorkerResult,
             WorkerType,
         )
-        
+
         result = WorkerResult(
             evaluation_id=f"replay_{artifact.artifact_id}",
             worker_type=WorkerType.OUTPUT_QUALITY,
@@ -473,9 +468,9 @@ def replay_evaluation(
             grader_mode=GraderMode.DETERMINISTIC,
             confidence=1.0,
         )
-        
+
         return result.model_dump()
-    
+
     except ValidationError as e:
         logger.error(f"Validation error in replay_evaluation: {e}")
         self.retry(exc=e)
@@ -498,7 +493,7 @@ def baseline_comparison(
 ) -> dict[str, Any]:
     """
     Compare candidate run against baseline run.
-    
+
     This worker compares artifacts by stable case ID and produces
     a comparison result with behavior changes and regressions.
     """
@@ -509,11 +504,9 @@ def baseline_comparison(
         # 3. Detect behavior changes
         # 4. Identify regressions
         # 5. Produce comparison result
-        
-        logger.info(
-            f"Comparing candidate {candidate_run_id} against baseline {baseline_run_id}"
-        )
-        
+
+        logger.info(f"Comparing candidate {candidate_run_id} against baseline {baseline_run_id}")
+
         # Placeholder result
         return {
             "baseline_run_id": baseline_run_id,
@@ -526,7 +519,7 @@ def baseline_comparison(
             "behavior_changed_trials": 0,
             "blocking_trials": [],
         }
-    
+
     except Exception as e:
         logger.error(f"Error in baseline_comparison: {e}")
         self.retry(exc=e)

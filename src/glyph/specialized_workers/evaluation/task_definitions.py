@@ -36,7 +36,6 @@ class EvaluationDefinition:
     sandbox_requirements: SandboxRequirements = field(default_factory=SandboxRequirements)
     exporters: tuple[EvaluationExporter, ...] = ()
     export_policy: ExportPolicy = field(default_factory=ExportPolicy)
-    enable_specialized_workers: bool = False
 
     def __post_init__(self) -> None:
         if not self.graders:

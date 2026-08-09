@@ -12,7 +12,6 @@ class TriggerRunRequest(BaseModel):
     """Request schema for triggering a new evaluation run."""
     config: dict[str, Any] = Field(description="Evaluation configuration")
     run_id: str | None = Field(None, description="Optional custom run ID")
-    enable_specialized_workers: bool = False
     target_factory: str | None = None
 
 
@@ -63,6 +62,7 @@ class TrialListItem(BaseModel):
     score: float
     duration_ms: int
     started_at: datetime
+    grades: list[dict[str, Any]] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

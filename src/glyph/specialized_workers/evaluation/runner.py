@@ -42,9 +42,6 @@ from glyph.security.contracts import (
     Target,
 )
 from glyph.security.live_sandbox import NoopSandboxProvider
-from glyph.specialized_workers.aggregator import ResultAggregator
-from glyph.specialized_workers.base import EvaluationEvidence
-from glyph.specialized_workers.orchestrator import EvaluationOrchestrator
 from glyph.targets.langgraph_target import BudgetExceededError
 from glyph.utils import canonical_json, content_hash, sanitize, sanitize_text
 from glyph.utils.artifacts import JsonlArtifactWriter
@@ -79,7 +76,6 @@ class EvaluationRunner:
         trial_started_observer: (
             Callable[[EvalCase, int], Awaitable[None] | None] | None
         ) = None,
-        enable_specialized_workers: bool = False,
     ) -> None:
         if not graders:
             raise ValueError("At least one grader is required")
@@ -135,10 +131,6 @@ class EvaluationRunner:
         # Initialize pipeline tracer for internal workflow tracing
         trace_output_path = artifact_path.parent / "traces" if artifact_path.parent.exists() else None
         self.pipeline_tracer = PipelineTracer(output_path=trace_output_path)
-        
-        self.enable_specialized_workers = enable_specialized_workers
-        self.orchestrator = EvaluationOrchestrator() if self.enable_specialized_workers else None
-        self.aggregator = ResultAggregator() if self.enable_specialized_workers else None
 
     async def run(self, cases: Sequence[EvalCase], *, run_id: str | None = None) -> RunSummary:
         if not cases:
@@ -440,47 +432,6 @@ class EvaluationRunner:
                     error_message = sandbox_cleanup.error_message
             duration_ms = int((time.monotonic() - monotonic_start) * 1000)
             input_hash = content_hash(canonical_json(case.input))
-        
-        worker_verdicts = None
-        if self.enable_specialized_workers and result is not None:
-            final_out = result.output
-            if not isinstance(final_out, dict):
-                final_out = {"text": final_out}
-            evidence = EvaluationEvidence(
-                trial_id=trial_id,
-                run_id=run_id,
-                case_id=case.id,
-                tool_calls=tuple(
-                    event.model_dump(mode="json") for event in result.trajectory if event.kind == "tool_call"
-                ),
-                tool_errors=tuple(
-                    event.model_dump(mode="json") for event in result.trajectory if event.kind == "tool_error"
-                ),
-                retrieval_events=tuple(
-                    r.model_dump(mode="json") for r in result.retrievals
-                ),
-                graph_nodes=tuple(
-                    i.model_dump(mode="json") for i in (result.loop.iterations if result.loop else [])
-                ),
-                security_events=tuple(
-                    event.model_dump(mode="json") for event in result.trajectory if event.kind == "security"
-                ),
-                final_output=final_out,
-                latency_ms=float(duration_ms),
-                cost_usd=float(result.usage.cost_usd or 0.0),
-                metadata=case.metadata,
-            )
-            loop = asyncio.get_running_loop()
-            orchestrated_result = await loop.run_in_executor(None, self.orchestrator.orchestrate, evidence)
-            aggregated_result = self.aggregator.aggregate(orchestrated_result.worker_results, trial_id)
-            worker_verdicts = {
-                "overall_score": aggregated_result.overall_score,
-                "release_decision": aggregated_result.release_decision.value,
-                "release_rationale": aggregated_result.release_rationale,
-                "worker_scores": {k.value: v for k, v in aggregated_result.worker_scores.items()},
-                "critical_failures": [k.value for k in aggregated_result.critical_failures],
-                "warnings": aggregated_result.warnings,
-            }
 
         return TrialRecord(
             trial_id=trial_id,
@@ -502,7 +453,6 @@ class EvaluationRunner:
             tracked_metrics=tracked_metrics,
             metrics=self._metric_values(result, duration_ms, tracked_metrics),
             input_hash=input_hash,
-            worker_verdicts=worker_verdicts,
         )
 
     async def _cleanup_sandbox(
