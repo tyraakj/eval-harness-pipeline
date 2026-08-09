@@ -146,3 +146,38 @@ async def get_artifact_trial(
         raise
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {e!s}")
+
+@router.get("/{name}/trace", response_model="TraceMetadataResponse")
+@limiter.limit("60/minute")
+async def get_artifact_trace(
+    request: Request,
+    name: str,
+    settings: Settings = Depends(get_settings),
+):
+    """Get trace metadata from an artifact."""
+    from glyph.schemas.artifacts import TraceMetadataResponse
+    artifact_path = Path(settings.artifacts_dir) / name
+    if not artifact_path.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+        
+    trace_path = artifact_path.with_suffix('.trace.json')
+    if not trace_path.exists():
+        raise HTTPException(status_code=404, detail="Trace file not found")
+        
+    try:
+        with open(trace_path, encoding="utf-8") as f:
+            trace_data = json.load(f)
+            
+        steps_completed = trace_data.get("metadata", {}).get("steps_completed", 0)
+        tests_processed = trace_data.get("metadata", {}).get("tests_processed", 0)
+        shared_steps = trace_data.get("metadata", {}).get("shared_steps", 0)
+        
+        return TraceMetadataResponse(
+            format="graph",
+            steps_completed=steps_completed,
+            tests_processed=tests_processed,
+            shared_steps=shared_steps
+        )
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to parse trace: {e!s}")
+
