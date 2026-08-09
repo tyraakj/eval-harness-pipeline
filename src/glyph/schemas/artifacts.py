@@ -28,3 +28,21 @@ class ArtifactSummaryResponse(BaseModel):
     pass_rate: float
     average_score: float
     duration_ms: int
+
+class TraceMetadataResponse(BaseModel):
+    """Response schema for trace metadata."""
+    format: str
+    steps_completed: int
+    tests_processed: int
+    shared_steps: int
+
+class SecurityAuditFinding(BaseModel):
+    check: str
+    passed: bool
+    test_id: str | None = None
+
+class SecurityAuditResponse(BaseModel):
+    """Response schema for security audit."""
+    tests_checked: int
+    pass_rate: float
+    findings: list[SecurityAuditFinding]

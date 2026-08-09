@@ -24,3 +24,14 @@ class DatasetValidationResponse(BaseModel):
     suite_counts: dict[str, int]
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+
+class ConversionPreviewResponse(BaseModel):
+    """Response schema for a dataset conversion preview."""
+    cases_converted: int = Field(description="Number of cases converted successfully")
+    cases_quarantined: int = Field(description="Number of cases quarantined due to secrets or PII")
+    cases_missing_expected: int = Field(description="Number of cases lacking an expected output")
+    column_mapping: dict[str, str] = Field(description="Mapping of raw columns to Glyph fields")
+    fuzzy_matches: list[str] = Field(description="List of fuzzy matching warnings")
+    quarantine_file: str | None = Field(default=None, description="Path to the quarantine file if any")
+    output_file: str | None = Field(default=None, description="Predicted path of the output file")

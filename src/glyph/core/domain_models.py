@@ -82,6 +82,14 @@ class SandboxCleanup(FrozenModel):
     error_message: str | None = None
 
 
+class SandboxRunResult(FrozenModel):
+    exit_code: int
+    stdout: str
+    stderr: str
+    duration_ms: int
+    timed_out: bool = False
+
+
 class SandboxRequirements(FrozenModel):
     required: bool = True
     capabilities: frozenset[str] = Field(default_factory=frozenset)

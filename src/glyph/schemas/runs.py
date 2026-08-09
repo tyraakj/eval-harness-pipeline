@@ -12,6 +12,8 @@ class TriggerRunRequest(BaseModel):
     """Request schema for triggering a new evaluation run."""
     config: dict[str, Any] = Field(description="Evaluation configuration")
     run_id: str | None = Field(None, description="Optional custom run ID")
+    enable_specialized_workers: bool = False
+    target_factory: str | None = None
 
 
 class TriggerRunResponse(BaseModel):
