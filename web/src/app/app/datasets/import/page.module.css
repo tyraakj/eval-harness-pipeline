@@ -1,0 +1,152 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 40px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: #64748b;
+  margin-bottom: 32px;
+  font-size: 1rem;
+}
+
+.uploadZone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 48px 32px;
+  text-align: center;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uploadZone:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.uploadTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.uploadDesc {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.fileInput {
+  display: none;
+}
+
+.previewBox {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.table th, .table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.table th {
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fuzzyMatch {
+  background-color: #fef08a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #854d0e;
+  margin-left: 8px;
+}
+
+.summaryBox {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.summaryItem:last-child {
+  margin-bottom: 0;
+}
+
+.summaryValue {
+  font-weight: 600;
+}
+
+.actionRow {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.btnPrimary {
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: #1e293b;
+}
+
+.btnSecondary {
+  background: white;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: #f8fafc;
+}
+
+.quarantineWarning {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
