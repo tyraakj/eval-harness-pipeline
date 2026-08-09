@@ -9,6 +9,15 @@ from typing import Any
 from celery import current_task
 from pydantic import ValidationError
 
+from glyph.specialized_workers.policy_registry import (
+    TOOL_DEFAULT_SCORES, TOOL_SUCCESS_MSG,
+    OUTPUT_DEFAULT_SCORES, OUTPUT_SUCCESS_MSG,
+    GRAPH_DEFAULT_SCORES, GRAPH_SUCCESS_MSG_TEMPLATE,
+    SECURITY_DEFAULT_SCORES, SECURITY_SUCCESS_MSG,
+    RETRIEVAL_DEFAULT_SCORES, RETRIEVAL_F1_EXCELLENT_MSG, RETRIEVAL_F1_ACCEPTABLE_MSG,
+    PERFORMANCE_DEFAULT_SCORES, PERFORMANCE_SUCCESS_MSG,
+)
+
 from glyph.specialized_workers.aggregator import AggregationPolicy, ResultAggregator
 from glyph.specialized_workers.artifact import EvaluationArtifact
 from glyph.specialized_workers.base import (
@@ -94,7 +103,10 @@ def tool_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.tool_evaluator import ToolPolicy
-        policy = ToolPolicy(**policy_dict) if policy_dict else ToolPolicy()
+        policy = ToolPolicy(**policy_dict) if policy_dict else ToolPolicy(
+            partial_scores=TOOL_DEFAULT_SCORES,
+            success_message=TOOL_SUCCESS_MSG,
+        )
         
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
@@ -125,7 +137,11 @@ def retrieval_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalPolicy
-        policy = RetrievalPolicy(**policy_dict) if policy_dict else RetrievalPolicy()
+        policy = RetrievalPolicy(**policy_dict) if policy_dict else RetrievalPolicy(
+            partial_scores=RETRIEVAL_DEFAULT_SCORES,
+            f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG,
+            f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG,
+        )
         
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
@@ -156,7 +172,10 @@ def graph_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.graph_evaluator import GraphPolicy
-        policy = GraphPolicy(**policy_dict) if policy_dict else GraphPolicy()
+        policy = GraphPolicy(**policy_dict) if policy_dict else GraphPolicy(
+            partial_scores=GRAPH_DEFAULT_SCORES,
+            success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE,
+        )
         
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
@@ -187,7 +206,10 @@ def output_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.output_evaluator import OutputPolicy
-        policy = OutputPolicy(**policy_dict) if policy_dict else OutputPolicy()
+        policy = OutputPolicy(**policy_dict) if policy_dict else OutputPolicy(
+            partial_scores=OUTPUT_DEFAULT_SCORES,
+            success_message=OUTPUT_SUCCESS_MSG,
+        )
         
         evaluator = OutputEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
@@ -218,7 +240,10 @@ def security_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.security_evaluator import SecurityPolicy
-        policy = SecurityPolicy(**policy_dict) if policy_dict else SecurityPolicy()
+        policy = SecurityPolicy(**policy_dict) if policy_dict else SecurityPolicy(
+            partial_scores=SECURITY_DEFAULT_SCORES,
+            success_message=SECURITY_SUCCESS_MSG,
+        )
         
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)
@@ -249,7 +274,10 @@ def performance_evaluation(
         evidence = EvaluationEvidence(**evidence_dict)
         
         from glyph.specialized_workers.evaluators.performance_evaluator import PerformancePolicy
-        policy = PerformancePolicy(**policy_dict) if policy_dict else PerformancePolicy()
+        policy = PerformancePolicy(**policy_dict) if policy_dict else PerformancePolicy(
+            partial_scores=PERFORMANCE_DEFAULT_SCORES,
+            success_message=PERFORMANCE_SUCCESS_MSG,
+        )
         
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(evidence)

@@ -12,6 +12,7 @@ from glyph.specialized_workers.base import (
     WorkerResult,
 )
 
+
 @dataclass
 class RoutingCriteria:
     """Criteria used for routing evaluation tasks."""

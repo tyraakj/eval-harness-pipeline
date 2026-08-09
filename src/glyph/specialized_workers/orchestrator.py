@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from glyph.core.domain_models import Budget
 from glyph.specialized_workers.base import (
     BaseSpecializedWorker,
     EvaluationEvidence,
@@ -18,6 +19,7 @@ from glyph.specialized_workers.evaluators.performance_evaluator import Performan
 from glyph.specialized_workers.evaluators.retrieval_evaluator import RetrievalEvaluator
 from glyph.specialized_workers.evaluators.security_evaluator import SecurityEvaluator
 from glyph.specialized_workers.evaluators.tool_evaluator import ToolEvaluator
+from glyph.specialized_workers.policy_registry import PolicyRegistry
 
 
 @dataclass
@@ -42,6 +44,10 @@ class OrchestratorConfig:
     output_evaluator_config: dict[str, Any] = field(default_factory=dict)
     security_evaluator_config: dict[str, Any] = field(default_factory=dict)
     performance_evaluator_config: dict[str, Any] = field(default_factory=dict)
+    
+    # Global policy registry
+    policy_registry: PolicyRegistry | None = None
+    worker_score_weights: dict[WorkerType, float] | None = None
 
 
 @dataclass
@@ -67,35 +73,38 @@ class EvaluationOrchestrator:
     
     def _initialize_workers(self) -> None:
         """Initialize specialized workers based on configuration."""
+        # Use provided registry or construct a default one
+        registry = self.config.policy_registry or PolicyRegistry(budget=Budget())
+        
         if self.config.enable_tool_evaluator:
-            self._workers[WorkerType.TOOL_POLICY] = ToolEvaluator(
-                **self.config.tool_evaluator_config
-            )
+            tool_config: dict[str, Any] = {"policy": registry.to_tool_policy()}
+            tool_config.update(self.config.tool_evaluator_config)
+            self._workers[WorkerType.TOOL_POLICY] = ToolEvaluator(**tool_config)
         
         if self.config.enable_retrieval_evaluator:
-            self._workers[WorkerType.RETRIEVAL_QUALITY] = RetrievalEvaluator(
-                **self.config.retrieval_evaluator_config
-            )
+            ret_config: dict[str, Any] = {"policy": registry.to_retrieval_policy()}
+            ret_config.update(self.config.retrieval_evaluator_config)
+            self._workers[WorkerType.RETRIEVAL_QUALITY] = RetrievalEvaluator(**ret_config)
         
         if self.config.enable_graph_evaluator:
-            self._workers[WorkerType.GRAPH_COMPLIANCE] = GraphEvaluator(
-                **self.config.graph_evaluator_config
-            )
+            graph_config: dict[str, Any] = {"policy": registry.to_graph_policy()}
+            graph_config.update(self.config.graph_evaluator_config)
+            self._workers[WorkerType.GRAPH_COMPLIANCE] = GraphEvaluator(**graph_config)
         
         if self.config.enable_output_evaluator:
-            self._workers[WorkerType.OUTPUT_QUALITY] = OutputEvaluator(
-                **self.config.output_evaluator_config
-            )
+            out_config: dict[str, Any] = {"policy": registry.to_output_policy()}
+            out_config.update(self.config.output_evaluator_config)
+            self._workers[WorkerType.OUTPUT_QUALITY] = OutputEvaluator(**out_config)
         
         if self.config.enable_security_evaluator:
-            self._workers[WorkerType.SECURITY] = SecurityEvaluator(
-                **self.config.security_evaluator_config
-            )
+            sec_config: dict[str, Any] = {"policy": registry.to_security_policy()}
+            sec_config.update(self.config.security_evaluator_config)
+            self._workers[WorkerType.SECURITY] = SecurityEvaluator(**sec_config)
         
         if self.config.enable_performance_evaluator:
-            self._workers[WorkerType.PERFORMANCE] = PerformanceEvaluator(
-                **self.config.performance_evaluator_config
-            )
+            perf_config: dict[str, Any] = {"policy": registry.to_performance_policy()}
+            perf_config.update(self.config.performance_evaluator_config)
+            self._workers[WorkerType.PERFORMANCE] = PerformanceEvaluator(**perf_config)
     
     def orchestrate(self, evidence: EvaluationEvidence) -> OrchestratedResult:
         """Orchestrate evaluation by routing evidence to appropriate workers."""
