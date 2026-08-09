@@ -12,14 +12,14 @@ from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from glyph.api.rate_limit import limiter
+from glyph.api.routes.artifacts import router as artifacts_router
+from glyph.api.routes.compare import router as compare_router
 from glyph.api.routes.datasets import router as datasets_router
 from glyph.api.routes.graders import router as graders_router
+from glyph.api.routes.guide import router as guide_router
 from glyph.api.routes.health import router as health_router
 from glyph.api.routes.runs import router as runs_router
-from glyph.api.routes.compare import router as compare_router
-from glyph.api.routes.artifacts import router as artifacts_router
-from glyph.api.routes.guide import router as guide_router
-from glyph.api.rate_limit import limiter
 from glyph.db.session import close_db, init_db
 
 
