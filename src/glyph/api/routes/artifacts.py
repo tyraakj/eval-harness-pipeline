@@ -111,8 +111,18 @@ async def get_artifact_trials(
                     if len(trials) >= limit:
                         break
                         
-                    trials.append(TrialListItem(**data))
-                    
+                    mapped_data = {
+                        "id": data.get("trial_id", ""),
+                        "run_id": "",
+                        "case_id": data.get("case_id", ""),
+                        "suite": data.get("suite", ""),
+                        "status": data.get("status", ""),
+                        "score": data.get("score", 0.0),
+                        "duration_ms": data.get("duration_ms", 0),
+                        "started_at": data.get("timestamp", datetime.now().isoformat()),
+                        "grades": data.get("grades", [])
+                    }
+                    trials.append(TrialListItem(**mapped_data))
         return trials
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {e!s}")
@@ -139,7 +149,18 @@ async def get_artifact_trial(
                     
                 data = json.loads(line)
                 if data.get("event") == "trial_complete" and data.get("case_id") == case_id:
-                    return TrialListItem(**data)
+                    mapped_data = {
+                        "id": data.get("trial_id", ""),
+                        "run_id": "",
+                        "case_id": data.get("case_id", ""),
+                        "suite": data.get("suite", ""),
+                        "status": data.get("status", ""),
+                        "score": data.get("score", 0.0),
+                        "duration_ms": data.get("duration_ms", 0),
+                        "started_at": data.get("timestamp", datetime.now().isoformat()),
+                        "grades": data.get("grades", [])
+                    }
+                    return TrialListItem(**mapped_data)
                     
         raise HTTPException(status_code=404, detail="Trial not found in artifact")
     except HTTPException:

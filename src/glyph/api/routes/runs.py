@@ -105,6 +105,7 @@ async def stream_run(
     """Stream run progress using SSE."""
     async def event_generator():
         last_trial_count = 0
+        last_trial_id_set = set()
         while True:
             # Check if client disconnected
             if await request.is_disconnected():
@@ -118,15 +119,34 @@ async def stream_run(
                 break
                 
             # Yield any new trial events
-            # For simplicity, we just look at the passed/failed/errors count, but in a real
-            # scenario you'd track exactly which trials were completed.
-            current_trials = run.passed + run.failed + run.errors
+            trials_result = await session.execute(
+                select(Trial).where(Trial.run_id == run_id)
+            )
+            trials = trials_result.scalars().all()
+            
+            for t in trials:
+                if t.id not in last_trial_id_set:
+                    event_data = {
+                        "event": "trial_complete",
+                        "case_id": t.case_id,
+                        "status": t.status,
+                        "score": t.score,
+                        "duration_ms": t.duration_ms,
+                        "suite": t.suite,
+                    }
+                    if t.record and "grades" in t.record:
+                        event_data["grades"] = t.record["grades"]
+                    
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                    last_trial_id_set.add(t.id)
+
+            current_trials = len(last_trial_id_set)
             if current_trials > last_trial_count:
                 yield f"data: {json.dumps({'event': 'progress', 'completed': current_trials, 'total': run.cases})}\n\n"
                 last_trial_count = current_trials
 
             if run.status in ("completed", "failed", "cancelled"):
-                yield f"data: {json.dumps({'event': 'run_complete', 'run_id': run.id, 'status': run.status, 'pass_rate': run.pass_rate})}\n\n"
+                yield f"data: {json.dumps({'event': 'run_complete', 'run_id': run.id, 'status': run.status, 'metrics': {'total_cases': run.total, 'completed': run.passed + run.failed + run.errors, 'failed': run.failed, 'errors': run.errors, 'pass_rate': run.pass_rate}})}\n\n"
                 break
                 
             await asyncio.sleep(0.5)
@@ -241,10 +261,10 @@ async def security_audit_run(
                     case_id = data.get("case_id")
                     
                     # We can evaluate the artifact if the trial had security issues
-                    # However, TrialRecord (event="trial_complete") might already contain grader_results.
+                    # However, TrialRecord (event="trial_complete") might already contain grades.
                     # Since this is a post-run audit, let's extract the security grader results if present
-                    grader_results = data.get("grader_results", [])
-                    security_result = next((r for r in grader_results if r.get("grader_name") == "security"), None)
+                    grades = data.get("grades", [])
+                    security_result = next((r for r in grades if r.get("grader") == "security"), None)
                     
                     tests_checked += 1
                     
