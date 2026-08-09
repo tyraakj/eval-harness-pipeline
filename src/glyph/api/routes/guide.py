@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
-from fastapi import APIRouter, Request
 from collections import defaultdict
+
 import typer
+from fastapi import APIRouter, Request
 from typer.core import TyperCommand, TyperGroup
 
-from glyph.schemas.guide import CommandArgument, CommandInfo, GuideSection, GuideResponse
 from glyph.api.rate_limit import limiter
+from glyph.schemas.guide import CommandArgument, CommandInfo, GuideResponse, GuideSection
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ async def get_guide(request: Request) -> GuideResponse:
     sections_map = defaultdict(list)
     
     try:
-        from glyph.cli.cli import app, _GUIDE_SECTIONS
+        from glyph.cli.cli import _GUIDE_SECTIONS, app
         
         # Typer apps need to be converted to click commands to inspect them easily
         click_app = typer.main.get_command(app)

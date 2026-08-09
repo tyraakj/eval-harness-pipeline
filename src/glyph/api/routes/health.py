@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from glyph.schemas.health import HealthResponse
-from glyph.db.session import get_db_session
 from glyph.api.rate_limit import limiter
 from glyph.api.settings import Settings, get_settings
+from glyph.db.session import get_db_session
+from glyph.schemas.health import HealthResponse
 
 router = APIRouter()
 

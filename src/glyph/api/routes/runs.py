@@ -3,25 +3,26 @@
 from __future__ import annotations
 
 import asyncio
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
-from fastapi.responses import StreamingResponse
+import json
+from pathlib import Path
 
-from glyph.schemas.runs import (
-    RunListItem, 
-    RunResponse, 
-    TriggerRunRequest, 
-    TriggerRunResponse,
-    TrialListItem,
-    ValidateRunResponse
-)
-from glyph.services.run_service import RunService
-from glyph.api.rate_limit import limiter
-from glyph.db.session import get_db_session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from glyph.api.rate_limit import limiter
 from glyph.db.orm_models import Run, Trial
-from pathlib import Path
-import json
+from glyph.db.session import get_db_session
+from glyph.schemas.runs import (
+    RunListItem,
+    RunResponse,
+    TrialListItem,
+    TriggerRunRequest,
+    TriggerRunResponse,
+    ValidateRunResponse,
+)
+from glyph.services.run_service import RunService
 
 router = APIRouter()
 
@@ -188,7 +189,7 @@ async def validate_run(
             errors.append(f"Dataset file '{config['dataset']}' not found in {run_service.settings.datasets_dir}")
         else:
             try:
-                with open(dataset_path, "r", encoding="utf-8") as f:
+                with open(dataset_path, encoding="utf-8") as f:
                     for line in f:
                         if line.strip():
                             json.loads(line)
