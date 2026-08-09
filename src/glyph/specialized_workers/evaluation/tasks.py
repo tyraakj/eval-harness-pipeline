@@ -10,14 +10,12 @@ from celery import Celery
 from sqlalchemy import update
 
 from glyph.cli.cli import _load_factory
-from glyph.core.domain_models import RunSummary
-from glyph.db.orm_models import Run
+from glyph.core.domain_models import RunSummary, TrialRecord
+from glyph.db.orm_models import Run, Trial
 from glyph.db.session import get_session
 from glyph.evaluation.definition import EvaluationDefinition
 from glyph.evaluation.runner import EvaluationRunner
 from glyph.utils.datasets import load_jsonl
-from glyph.core.domain_models import TrialRecord
-from glyph.db.orm_models import Run, Trial
 
 celery_app = Celery(
     "ai_eval",

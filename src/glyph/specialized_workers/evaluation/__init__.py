@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from glyph.core.domain_models import (
+    OnlineEvaluationDecision,
+    OnlineEvaluationPolicy,
+    OnlineEvaluationStatus,
+)
 from glyph.specialized_workers.evaluation.human_evaluation import (
     HumanAdjudication,
     HumanEvaluationLedger,
@@ -16,11 +21,6 @@ from glyph.specialized_workers.evaluation.human_evaluation import (
     HumanReviewStatus,
     HumanReviewSummary,
     HumanReviewTask,
-)
-from glyph.core.domain_models import (
-    OnlineEvaluationDecision,
-    OnlineEvaluationPolicy,
-    OnlineEvaluationStatus,
 )
 from glyph.specialized_workers.evaluation.online_evaluation import OnlineEvaluator
 from glyph.specialized_workers.evaluation.optimizers import (
