@@ -9,6 +9,7 @@ from glyph.core.domain_models import (
     Grade,
     OutcomeObservation,
     RunSummary,
+    SandboxRunResult,
     SandboxSession,
     TargetResult,
     TrialRecord,
@@ -28,6 +29,30 @@ class SandboxProvider(Protocol):
     async def reset(self, session: SandboxSession) -> None: ...
 
     async def destroy(self, session: SandboxSession) -> None: ...
+
+    async def run(
+        self,
+        session: SandboxSession,
+        argv: list[str],
+        env: dict[str, str] | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> SandboxRunResult:
+        raise NotImplementedError
+
+    async def read(
+        self,
+        session: SandboxSession,
+        path: str,
+    ) -> bytes:
+        raise NotImplementedError
+
+    async def write(
+        self,
+        session: SandboxSession,
+        path: str,
+        data: bytes,
+    ) -> None:
+        raise NotImplementedError
 
 
 class EvaluationExporter(Protocol):

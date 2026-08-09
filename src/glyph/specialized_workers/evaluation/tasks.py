@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import UTC
 from typing import Any
 
@@ -19,8 +20,8 @@ from glyph.utils.datasets import load_jsonl
 
 celery_app = Celery(
     "ai_eval",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0",
+    broker=os.getenv("CELERY_BROKER_URL", "sqla+sqlite:///celery_broker.sqlite"),
+    backend=os.getenv("CELERY_RESULT_BACKEND", "db+sqlite:///celery_results.sqlite"),
 )
 
 

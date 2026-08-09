@@ -11,7 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from glyph.core.domain_models import EvalCase, SandboxSession
+from glyph.core.domain_models import EvalCase, SandboxSession, SandboxRunResult
 from glyph.security.live_sandbox import RunContext
 
 
@@ -27,7 +27,7 @@ class FilesystemSandboxProvider:
     """Provides filesystem isolation for offline evaluation using temporary directories."""
 
     name = "filesystem"
-    capabilities: frozenset[str] = frozenset({"filesystem", "temp_files"})
+    capabilities: frozenset[str] = frozenset({"filesystem", "temp_files", "run_exec"})
 
     def __init__(self, config: FilesystemSandboxConfig) -> None:
         self.config = config
@@ -78,6 +78,73 @@ class FilesystemSandboxProvider:
             if trial_dir.exists():
                 shutil.rmtree(trial_dir, ignore_errors=True)
             del self._temp_dirs[session.id]
+
+    async def run(
+        self,
+        session: SandboxSession,
+        argv: list[str],
+        env: dict[str, str] | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> SandboxRunResult:
+        import asyncio
+        import time
+
+        trial_dir = Path(session.metadata.get("trial_dir", ""))
+        
+        start_time = time.monotonic()
+        process = None
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *argv,
+                cwd=str(trial_dir),
+                env=env or {},
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            return SandboxRunResult(
+                exit_code=process.returncode or 0,
+                stdout=stdout.decode("utf-8", errors="replace"),
+                stderr=stderr.decode("utf-8", errors="replace"),
+                duration_ms=duration_ms,
+                timed_out=False,
+            )
+        except asyncio.TimeoutError:
+            if process:
+                process.kill()
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            return SandboxRunResult(
+                exit_code=-1,
+                stdout="",
+                stderr="Execution timed out.",
+                duration_ms=duration_ms,
+                timed_out=True,
+            )
+
+    async def read(
+        self,
+        session: SandboxSession,
+        path: str,
+    ) -> bytes:
+        trial_dir = Path(session.metadata.get("trial_dir", ""))
+        file_path = trial_dir / path
+        if not file_path.resolve().is_relative_to(trial_dir.resolve()):
+            raise ValueError("Path traversal detected")
+        return file_path.read_bytes()
+
+    async def write(
+        self,
+        session: SandboxSession,
+        path: str,
+        data: bytes,
+    ) -> None:
+        trial_dir = Path(session.metadata.get("trial_dir", ""))
+        file_path = trial_dir / path
+        if not file_path.resolve().is_relative_to(trial_dir.resolve()):
+            raise ValueError("Path traversal detected")
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(data)
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +199,21 @@ class NetworkSandboxProvider:
     async def destroy(self, session: SandboxSession) -> None:
         """Clean up network isolation."""
         pass
+
+    async def run(
+        self,
+        session: SandboxSession,
+        argv: list[str],
+        env: dict[str, str] | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> SandboxRunResult:
+        raise NotImplementedError
+
+    async def read(self, session: SandboxSession, path: str) -> bytes:
+        raise NotImplementedError
+
+    async def write(self, session: SandboxSession, path: str, data: bytes) -> None:
+        raise NotImplementedError
 
 
 class CompositeSandboxProvider:
@@ -192,3 +274,33 @@ class CompositeSandboxProvider:
         # Clean up stored sessions
         if session.id in self._child_sessions:
             del self._child_sessions[session.id]
+
+    async def run(
+        self,
+        session: SandboxSession,
+        argv: list[str],
+        env: dict[str, str] | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> SandboxRunResult:
+        child_sessions = self._child_sessions.get(session.id, [])
+        for child in child_sessions:
+            for provider in self.providers:
+                if provider.name == child.provider and "run_exec" in provider.capabilities:
+                    return await provider.run(child, argv, env, timeout_seconds)
+        raise NotImplementedError("No composite provider supports run_exec")
+
+    async def read(self, session: SandboxSession, path: str) -> bytes:
+        child_sessions = self._child_sessions.get(session.id, [])
+        for child in child_sessions:
+            for provider in self.providers:
+                if provider.name == child.provider and "filesystem" in provider.capabilities:
+                    return await provider.read(child, path)
+        raise NotImplementedError("No composite provider supports read")
+
+    async def write(self, session: SandboxSession, path: str, data: bytes) -> None:
+        child_sessions = self._child_sessions.get(session.id, [])
+        for child in child_sessions:
+            for provider in self.providers:
+                if provider.name == child.provider and "filesystem" in provider.capabilities:
+                    return await provider.write(child, path, data)
+        raise NotImplementedError("No composite provider supports write")
