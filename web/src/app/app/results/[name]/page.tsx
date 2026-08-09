@@ -12,9 +12,10 @@ type TrialEvent = {
   suite: string;
   score: number;
   duration_ms: number;
-  grader_results: Array<{
-    grader_name: string;
+  grades: Array<{
+    grader: string;
     passed: boolean;
+    score: number;
     reason: string;
   }>;
   error?: string;
@@ -73,9 +74,9 @@ export default function ResultDetailPage() {
   const graderStats = useMemo(() => {
     const stats: Record<string, { total: number, passed: number }> = {};
     trials.forEach(trial => {
-      if (!trial.grader_results) return;
-      trial.grader_results.forEach(gr => {
-        const name = gr.grader_name;
+      if (!trial.grades) return;
+      trial.grades.forEach(gr => {
+        const name = gr.grader;
         if (!stats[name]) stats[name] = { total: 0, passed: 0 };
         stats[name].total++;
         if (gr.passed) stats[name].passed++;
@@ -222,15 +223,15 @@ export default function ResultDetailPage() {
                     <td colSpan={5} style={{ padding: 0 }}>
                       <div className={styles.detailsContent}>
                         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>What was checked</div>
-                        {trial.grader_results && trial.grader_results.length > 0 ? (
-                          trial.grader_results.map((gr, idx) => (
-                            <div key={idx} className={styles.detailsCheck}>
-                              {gr.passed ? (
-                                <span style={{ color: '#16a34a' }}>✓</span>
-                              ) : (
-                                <span style={{ color: '#dc2626' }}>✗</span>
+                        <div className={styles.checksList}>
+                        {trial.grades && trial.grades.length > 0 ? (
+                          trial.grades.map((gr, idx) => (
+                            <div key={idx} className={`${styles.checkItem} ${gr.passed ? styles.passed : styles.failed}`}>
+                              <span className={styles.checkIcon}>{gr.passed ? '✓' : '✗'}</span>
+                              <span className={styles.checkName}>{gr.grader}</span>
+                              {!gr.passed && gr.reason && (
+                                <span className={styles.checkReason}>- {gr.reason}</span>
                               )}
-                              <span>{gr.reason || gr.grader_name}</span>
                             </div>
                           ))
                         ) : (
