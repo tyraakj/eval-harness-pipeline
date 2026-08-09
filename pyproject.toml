@@ -48,6 +48,7 @@ glyph = "glyph.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/glyph"]
+artifacts = ["src/glyph/specialized_workers/default_policy.yaml"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

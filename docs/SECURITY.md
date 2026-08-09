@@ -24,9 +24,15 @@ In addition to OWASP, Glyph provides coverage for MITRE ATLAS techniques:
 
 ## Configuring Security Policies
 
-All detection thresholds, block lists, regex patterns, and string templates are defined in `src/glyph/specialized_workers/policy_registry.py`. **Do not hardcode strings inside the evaluator**.
+Legacy worker defaults remain in `src/glyph/specialized_workers/policy_registry.py`.
+Success text is no longer a policy input: successful workers emit stable reason
+codes, while user-facing messages belong in a spec or presentation layer. Do not
+hardcode pass/fail prose inside evaluators.
 
-To extend or adjust patterns for your environment, modify the relevant constants in `policy_registry.py`:
+To extend or adjust patterns for your environment, provide them in the
+project-owned `specialized_policy` YAML referenced by the evaluation spec.
+The Python constants are legacy compatibility values and should not be edited
+for a production suite:
 
 - `SYSTEM_PROMPT_LEAK_INDICATORS`
 - `IRREVERSIBLE_ACTION_INDICATORS`

@@ -34,3 +34,8 @@ def create_evaluation() -> EvaluationDefinition:
         budget=Budget(timeout_seconds=10, max_concurrency=2),
         sandbox_requirements=SandboxRequirements(required=False),
     )
+
+
+def create_evaluation_target() -> LangGraphTarget:
+    """Target-only factory used by the portable YAML evaluation spec."""
+    return LangGraphTarget(build_graph(), version="simple-graph@1.0.0")

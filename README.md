@@ -2,6 +2,11 @@
 
 **Know exactly what changed in your agent, why each test broke, and whether it is safe to ship.**
 
+> Policy migration status: evaluation specs and the specialized-worker policy
+> profile are available now. Some legacy Python constructors still expose
+> compatibility defaults; new suites should use a project-owned
+> `specialized_policy` file.
+
 - **Records what your agent did** — every tool call, output, and timing measurement, permanently, for each version you run.
 - **Change your evaluation without re-running your agent** — when Glyph runs your agent, it records the complete output: every tool call with its arguments and return value, the final response, timing, and token usage. That record is written to a JSONL file on your disk and, if you are using the web UI, also to your own database. Graders never call your agent — they read that record. Adding a new grader, tightening a threshold, or running a security check means running a different function against the same record. No API call, no model invocation, no tokens spent. The only thing that costs tokens is the agent execution itself, which happens once per agent version. Everything after — grading, re-grading, security checks, comparisons, release decisions — is local computation on the record you already have.
 - **Case-level failures, not just scores** — when a test fails, Glyph tells you exactly why: the expected string was not in the output, the required tool was not called, the response exceeded the time limit, the agent called a blocked endpoint. Each failure links to the specific check that did not pass and what the agent actually produced. Not "pass rate dropped 4%" — "these 3 tests failed, here is what broke in each one."
@@ -9,7 +14,7 @@
 - **Shows where the model is going wrong** — the trajectory recording captures every decision the model made: which tools it called in which order, what arguments it passed, how many times it looped, what it produced at each step. From that, Glyph can tell you the model called the wrong tool first, passed a null argument, looped 8 times when it should have stopped at 2, or leaked a credential it saw in context.
 - **AI review for things deterministic checks cannot measure** — for reasoning quality, tone, factual grounding, or any nuanced rubric, add a `CalibratedModelJudge`. It calls an LLM with your rubric and scoring threshold, enforces a declared cost ceiling before making the call, and produces a grade that participates in the same pass/fail policy as all other graders. The AI judge escalation path goes further: the grader router can automatically escalate borderline cases to a judge after deterministic checks run, with budget and rate-limit gates that fall back to deterministic evaluation if the judge is unavailable or too expensive.
 - **Human review for decisions that require it** — some failures need a human, not an algorithm. Glyph's human review ledger assigns specific trials to named reviewers with a versioned rubric, tracks pass/fail/abstain decisions, requires a configurable minimum number of reviews, flags disagreements for adjudication, and computes inter-reviewer agreement (Cohen's kappa). Human review has its own independent release policy: you can require specific rubrics to be completed and passing before a release is allowed, separate from the automated verdict. All records are append-only JSONL — auditable, versioned, and yours.
-- **Security built into the run** — deterministic checks for prompt injection, credential exposure, excessive actions, SSRF, path traversal, and jailbreak attempts run on the same recording your graders already used. No separate tool, no extra API calls, covers [OWASP LLM Top 10 (2025)](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+- **Security built into the run** — deterministic security graders can inspect the same recording your graders already used. Configure the checks and thresholds in the evaluation spec or your target integration; a category label is not a security guarantee.
 - **One reproducible decision** — every result file records the dataset hash, target version, model ID, and grader versions. Two engineers running the same file get the same release decision. No drift, no "it passed on my machine."
 - **Your data, your files, your server** — the JSONL result files live on your disk. The web UI runs on your own machine via `glyph serve` and talks to a SQLite database by default — no account, no cloud service, nothing leaving your environment. If you want a team setup, you point it at your own Postgres and Redis. Glyph does not operate any server you connect to. There is no `app.glyph.io`.
 - **Works without instrumenting your code** — start from a CSV, a pytest file, or a production failure log. You do not need to add an SDK to your agent to get your first evaluation running.
@@ -89,6 +94,29 @@ Glyph does not pay for generation — it uses your configured LLM provider.
 ---
 
 ## Step 2 — Define how your agent is tested
+
+New suites should start with a versioned evaluation spec. It keeps the target,
+dataset, budget, deterministic checks, and weighted release rubric in one
+reviewable file—without hard-coding a tool list or scoring logic in the CLI.
+
+```bash
+glyph run --spec evaluations/support.yaml --check
+glyph run --spec evaluations/support.yaml
+```
+
+See [the evaluation spec reference](docs/EVALUATION_SPEC.md) and
+[`examples/evaluation.yaml`](examples/evaluation.yaml). The Python factory form
+below remains supported for existing integrations.
+
+Use both grading modes: deterministic checks for observable agent, graph, node,
+tool, and retrieval contracts; an opt-in, cost-bounded model judge for semantic
+answer quality and grounding. They produce separate grades but participate in
+the same weighted release policy.
+
+The spec is the evaluation contract: scores come only from named checks and
+weighted rubric criteria. Glyph does not infer “tool quality”, “RAG quality”, or
+“security” scores from the presence of events. This avoids the false-positive
+category scores produced by the old `--workers` flag.
 
 Write a Python factory function that connects Glyph to your agent. Keep it in your
 repo alongside your agent code.
@@ -215,13 +243,12 @@ and what failed.
 
 ## Security checks
 
-Glyph checks what your agent actually did after every test and tells you exactly
-what it found. Add `--workers` to any run:
+Glyph records what your agent did and deterministic graders inspect that evidence.
+Declare security requirements as explicit checks or rubric criteria in the spec;
+for example, `tool_allowed` makes tool access auditable per criterion.
 
 ```bash
-glyph run --workers \
-  --factory my_app.evaluation:create_evaluation \
-  --dataset datasets/support-v1.jsonl
+glyph run --spec evaluations/security.yaml
 ```
 
 Or audit any completed results file:
@@ -230,10 +257,10 @@ Or audit any completed results file:
 glyph security audit --results artifacts/candidate.jsonl
 ```
 
-Checks cover: prompt injection patterns in inputs, credential-like strings in
-outputs, tool calls to blocked domains, path traversal in arguments, excessive
-or irreversible action patterns in outputs. When a check fires, Glyph tells you
-which test triggered it and what it found.
+The specialized security workers in this repository can check prompt injection,
+credential-like strings, endpoints, path traversal, and irreversible actions.
+Their policies must be configured for your environment; generic defaults should
+not be treated as deployment controls.
 
 Coverage aligns with [OWASP Top 10 for LLMs 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
 See [docs/SECURITY.md](docs/SECURITY.md) to configure checks for your deployment.
@@ -252,7 +279,8 @@ See [docs/SECURITY.md](docs/SECURITY.md) to configure checks for your deployment
 - **Case generation** — `glyph generation create` calls an LLM to generate test cases. You provide the API key and control the count.
 
 **Costs zero tokens (always):**
-- All six `--workers` analysis checks — Security, Performance, Tool use, Output quality, Graph structure, Retrieval quality. All deterministic post-hoc analysis on the recording. No API call of any kind.
+- Declared deterministic graders and rubric criteria. They read the recording and
+  make no model call.
 - All built-in graders — `ExactMatchGrader`, `ContainsAllGrader`, `ToolPolicyGrader`, `RetrievalMetricsGrader`, and the rest. Pure Python functions reading the recording.
 - Re-grading, comparison, release decisions, the web UI, the API, the CLI — all local computation.
 
@@ -326,7 +354,7 @@ the same reference in the sidebar.
 | Import tests from an existing file | `glyph datasets convert --from my_tests.csv` |
 | Check config without running | `glyph run --check --factory ... --dataset ...` |
 | Run your tests | `glyph run --factory ... --dataset ...` |
-| Run with security and quality checks | `glyph run --workers --factory ... --dataset ...` |
+| Run a reproducible suite | `glyph run --spec evaluations/suite.yaml` |
 | Test two agent versions at once | `glyph compare-targets --factory ... --target-a ... --target-b ...` |
 | See what changed | `glyph compare --candidate ... --baseline ...` |
 | Decide if safe to ship | `glyph release --deterministic ... --baseline ...` |
@@ -376,6 +404,8 @@ a local result file is written. A LangSmith outage cannot change a local result.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — how Glyph works under the hood.
+- [Evaluation specification](docs/EVALUATION_SPEC.md) — the versioned test and rubric contract.
+- [Feature status](docs/FEATURE_STATUS.md) — implemented capabilities and remaining work.
 - [Security](docs/SECURITY.md) — OWASP coverage, adding checks, configuring policies.
 - [Sandbox providers](docs/SANDBOX_PROVIDERS.md) — built-in providers and the production contract.
 - [User guide](docs/USER_GUIDE.md) — graders, prompts, DSPy, LangSmith, human review.

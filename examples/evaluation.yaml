@@ -1,0 +1,46 @@
+# Glyph Evaluation Spec v1: checked into source control with the dataset.
+schema_version: 1
+
+suite:
+  id: support-agent
+  version: 1.0.0
+  description: Release checks for the support agent
+
+# The only Python integration point. It returns any Glyph Target, so the spec
+# never needs a built-in list of frameworks, models, or tools.
+target:
+  factory: examples.simple_graph:create_evaluation_target
+
+dataset: ../datasets/example.jsonl
+artifact: ../artifacts/support-agent.jsonl
+
+budget:
+  timeout_seconds: 20
+  max_tool_calls: 4
+  max_concurrency: 2
+
+# Reusable deterministic checks. Their parameters are data, not CLI code.
+graders:
+  - type: contains_all
+
+# A criterion becomes an individual, inspectable grade. Required criteria are
+# hard gates; other criteria contribute according to weight.
+rubric:
+  pass_threshold: 0.80
+  criteria:
+    - id: answer-covers-request
+      description: Answer includes every case-specific required phrase
+      assertion: contains
+      expected_path: contains
+      weight: 0.70
+      required: true
+    - id: response-is-present
+      description: Agent returns an answer field
+      assertion: exists
+      output_path: answer
+      weight: 0.10
+    - id: approved-tools-only
+      description: Agent uses only the tools named by this case
+      assertion: tool_allowed
+      expected: []
+      weight: 0.20

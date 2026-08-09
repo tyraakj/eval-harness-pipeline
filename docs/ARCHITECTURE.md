@@ -116,7 +116,8 @@ run on the same artifact always produces the same result.
 ## Specialized analysis checks
 
 Six optional workers can run after the standard graders on every trial.
-Enable them with `--workers` on `glyph run` or the toggle in the web console.
+The legacy `--workers` CLI category table is deprecated. Configure the relevant
+checks as named graders or rubric criteria in an evaluation spec instead.
 
 | Check | What it checks |
 |---|---|
@@ -127,7 +128,8 @@ Enable them with `--workers` on `glyph run` or the toggle in the web console.
 | Graph structure | Node repetition, loop count, valid terminal states |
 | Retrieval quality | F1 precision/recall, citation grounding, latency |
 
-All six derive their thresholds from the run's `Budget` via `PolicyRegistry`.
+Legacy specialized workers derive some thresholds from the run's `Budget` via
+`PolicyRegistry`; new suites should keep thresholds and weights in their spec.
 Changing `Budget(max_tool_calls=10)` propagates to the tool-use check and
 performance check automatically — no separate policy to maintain.
 
@@ -426,3 +428,17 @@ CLI reference, always in sync with the installed version.
   make network calls or write to disk.
 - Set `minimum_security_pass_rate=1.0` in `ReleasePolicy` (the default).
 - Test rollback to a known prompt, graph, and model configuration.
+# Architecture
+
+## Configuration boundary
+
+`EvaluationSpec` is the user-facing contract for new suites. It compiles a YAML
+file into an `EvaluationDefinition`: a target factory, suite metadata, budget,
+deterministic graders, and a weighted rubric. The runner receives only that
+compiled definition and writes immutable JSONL evidence. This keeps provider,
+tool, RAG, and scoring details out of CLI branches.
+
+Each rubric criterion is a named grader (`rubric.<id>`), so its score, pass
+state, input expectation, observed value, and weight are independently visible
+in an artifact. Required criteria are gates; all other criteria use the declared
+weighted threshold. See [Evaluation specification](EVALUATION_SPEC.md).

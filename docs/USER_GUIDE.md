@@ -62,6 +62,19 @@ Implement `OutcomeCollector` for authoritative post-execution checks such as dat
 
 
 
+## Spec-driven grading
+
+For new evaluations, use `glyph run --spec evaluation.yaml`. Put reusable
+deterministic graders under `graders`, and use `rubric.criteria` for the actual
+release contract. A criterion must name an observable assertion, a weight, and
+whether failure is a hard gate. It receives its expected values from the case
+or from the spec and writes an individual grade to the artifact.
+
+Do not use an inferred category score as a release signal. A tool or retrieval
+event is evidence; it becomes a score only after a declared criterion evaluates
+it. See [Evaluation specification](EVALUATION_SPEC.md) and
+[Feature status](FEATURE_STATUS.md).
+
 ## Heuristic Graders
 
 Heuristic graders provide flexible, rule-based evaluation when exact matching is too strict. They use approximate algorithms and multi-factor scoring while remaining deterministic (no model calls).

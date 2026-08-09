@@ -1,5 +1,10 @@
 # Specialized Evaluation Workers
 
+> New suites must configure worker thresholds, score maps, patterns, and release
+> behavior through `specialized_policy` in an evaluation spec. The Python policy
+> constructors below remain a compatibility API; their defaults are not the
+> project policy source of truth.
+
 ## Overview
 
 Glyph's specialized worker system provides multi-dimensional, trace-level evaluation of AI agent executions with **zero-token replay** capabilities. Unlike generic evaluation systems that only compare final answers, this architecture evaluates the entire execution trace: tool calls, retrieval, node transitions, state changes, latency, cost, and final outcomes.
