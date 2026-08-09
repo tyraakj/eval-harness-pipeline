@@ -573,7 +573,8 @@ class SecurityEvaluator(BaseSpecializedWorker):
         
         # All security checks passed
         return (
-            1.0, True, Severity.INFO, "security_compliant", self.policy.success_message
+            1.0, True, Severity.INFO, "security_compliant",
+            self.policy.success_message or "security_compliant"
         )
 
 

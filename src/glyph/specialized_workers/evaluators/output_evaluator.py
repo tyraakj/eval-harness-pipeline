@@ -454,7 +454,7 @@ class OutputEvaluator(BaseSpecializedWorker):
             True,
             Severity.INFO,
             "output_compliant",
-            self.policy.success_message
+            self.policy.success_message or "output_compliant"
         )
 
 

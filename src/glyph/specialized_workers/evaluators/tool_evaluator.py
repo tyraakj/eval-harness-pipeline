@@ -313,7 +313,7 @@ class ToolEvaluator(BaseSpecializedWorker):
             True,
             Severity.INFO,
             "tool_policy_compliant",
-            self.policy.success_message
+            self.policy.success_message or "tool_policy_compliant"
         )
 
 

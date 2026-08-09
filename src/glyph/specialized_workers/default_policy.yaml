@@ -1,0 +1,138 @@
+# Versioned default policy. Copy this into an evaluation spec and change it for
+# a real suite; source code must not decide a release threshold or partial score.
+version: 1
+scores:
+  tool:
+    hallucinated_tools: 0.0
+    prohibited_tools: 0.0
+    missing_required: 0.0
+    schema_violation: 0.5
+    invalid_json: 0.5
+    excessive_tools: 0.7
+    missing_optional: 0.9
+  output:
+    prohibited_fields_present: 0.0
+    format_violation: 0.0
+    missing_required_fields: 0.5
+    length_violation: 0.7
+    missing_citations: 0.7
+    not_grounded: 0.7
+    instruction_noncompliance: 0.6
+    invalid_citations: 0.85
+  graph:
+    prohibited_nodes: 0.0
+    prohibited_transitions: 0.0
+    node_failures: 0.5
+    invalid_terminal_state: 0.5
+    required_nodes_skipped: 0.6
+    excessive_nodes: 0.7
+    excessive_loops: 0.7
+    excessive_node_repeats: 0.8
+    unexpected_paths: 0.85
+    missing_required_nodes: 0.9
+  security:
+    secret_exposure: 0.0
+    credential_exposure: 0.0
+    system_compromise: 0.0
+    data_exfiltration: 0.0
+    sensitive_domain: 0.0
+    destructive_action: 0.0
+    prohibited_tool: 0.0
+    suspicious_pattern: 0.0
+    private_network: 0.0
+  retrieval:
+    no_retrieval: 0.0
+    poor_precision: 0.3
+    poor_recall: 0.3
+    poor_f1: 0.4
+    unused_sources: 0.85
+    incorrect_citations: 0.5
+    slow_retrieval: 0.6
+    missing_citations: 0.7
+    insufficient_sources: 0.7
+    duplicate_retrievals: 0.8
+  performance:
+    cost_violations: 0.0
+    resource_violations: 0.0
+    latency_violations: 0.5
+    token_violations: 0.6
+    efficiency_violations: 0.7
+    latency_exceeded: 0.4
+    time_to_first_token_exceeded: 0.5
+    avg_node_latency_exceeded: 0.6
+    token_limit_exceeded: 0.4
+    efficiency_below_minimum: 0.6
+thresholds:
+  retrieval:
+    f1_excellent: 0.9
+    f1_acceptable: 0.7
+  graph:
+    max_node_repeats: 3
+    max_total_nodes: 50
+    max_loops: 10
+    allowed_terminal_reasons: [completed, success, complete]
+  tool:
+    max_retries: 3
+  performance:
+    max_cost_usd: 1.0
+release_profiles:
+  strict:
+    require_deterministic: true
+    require_regression_check: true
+    minimum_overall_pass_rate: 1.0
+    minimum_capability_pass_rate: 1.0
+    minimum_regression_pass_rate: 1.0
+    minimum_security_pass_rate: 1.0
+    maximum_error_rate: 0.0
+    maximum_regressions: 0
+    minimum_pass_rate_delta: 0.0
+  development:
+    require_deterministic: true
+    require_regression_check: false
+    minimum_overall_pass_rate: 0.8
+    minimum_capability_pass_rate: 0.7
+    minimum_regression_pass_rate: 0.9
+    minimum_security_pass_rate: 1.0
+    maximum_error_rate: 0.1
+    maximum_regressions: 5
+    minimum_pass_rate_delta: -0.1
+  staging:
+    require_deterministic: true
+    require_regression_check: true
+    minimum_overall_pass_rate: 0.95
+    minimum_capability_pass_rate: 0.9
+    minimum_regression_pass_rate: 0.95
+    minimum_security_pass_rate: 1.0
+    maximum_error_rate: 0.05
+    maximum_regressions: 2
+    minimum_pass_rate_delta: 0.0
+aggregation:
+  minimum_overall_score: 0.8
+  minimum_tool_score: 0.9
+  minimum_retrieval_score: 0.7
+  minimum_graph_score: 0.8
+  minimum_output_score: 0.8
+  minimum_performance_score: 0.6
+  block_on_critical_security: true
+  block_on_critical_tool: true
+  block_on_critical_graph: true
+  tool_weight: 0.2
+  retrieval_weight: 0.15
+  graph_weight: 0.15
+  output_weight: 0.25
+  security_weight: 0.15
+  performance_weight: 0.1
+  max_non_critical_failures: 2
+  allow_conditional_approval: true
+ai_judge:
+  model: gpt-4
+  max_tokens: 1000
+  temperature: 0.0
+  timeout_seconds: 30
+  max_retries: 2
+  max_cost_per_call_usd: 0.05
+  max_total_cost_usd: 1.0
+  min_confidence: 0.7
+  require_structured_output: true
+  calls_per_minute: 10
+  calls_per_hour: 100

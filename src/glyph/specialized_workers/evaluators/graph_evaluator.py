@@ -472,7 +472,9 @@ class GraphEvaluator(BaseSpecializedWorker):
             True,
             Severity.INFO,
             "graph_compliant",
-            self.policy.success_message_template.format(nodes=findings['total_nodes'], loops=graph_analysis.loop_count)
+            self.policy.success_message_template.format(
+                nodes=findings['total_nodes'], loops=graph_analysis.loop_count
+            ) or "graph_compliant"
         )
 
 

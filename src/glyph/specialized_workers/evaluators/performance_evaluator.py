@@ -444,7 +444,7 @@ class PerformanceEvaluator(BaseSpecializedWorker):
                 True,
                 Severity.INFO,
                 "performance_compliant",
-                self.policy.success_message
+                self.policy.success_message or "performance_compliant"
             )
         else:
             return (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -22,6 +23,8 @@ from glyph.specialized_workers.gates.ai_decision_gates import (
 )
 
 logger = logging.getLogger(__name__)
+
+JudgeProvider = Callable[[EvaluationArtifact, AIJudgeInvocationConfig, str], Awaitable[AIJudgeResult]]
 
 
 class RoutingDecision(StrEnum):
@@ -99,6 +102,7 @@ class GraderRouter:
         strong_judge_cost_usd: float = 0.05,
         sample_rate: float = 0.1,  # 10% sampling for monitoring
         gate_chain: AIJudgeGateChain | None = None,
+        judge_provider: JudgeProvider | None = None,
     ):
         self.deterministic_workers = deterministic_workers
         self.ai_judge_available = ai_judge_available
@@ -106,6 +110,7 @@ class GraderRouter:
         self.strong_judge_cost_usd = strong_judge_cost_usd
         self.sample_rate = sample_rate
         self.gate_chain = gate_chain or AIJudgeGateChain()
+        self.judge_provider = judge_provider
     
     def route_trial(
         self,
@@ -482,39 +487,15 @@ class SelectiveEvaluationPipeline:
         judge_type: str,
     ) -> AIJudgeResult:
         """Internal method to actually invoke the AI judge."""
-        # TODO: Implement actual AI judge invocation
-        # This would call an LLM to evaluate semantic quality
-        
-        # Simulate AI judge result for now
-        worker_result = WorkerResult(
-            evaluation_id=f"ai_judge_{artifact.trial_id}",
-            worker_type=WorkerType.OUTPUT_QUALITY,
-            worker_version="1.0.0",
-            trial_id=artifact.trial_id,
-            score=0.85,
-            passed=True,
-            severity=Severity.INFO,
-            reason_code="ai_judge_evaluation",
-            reason_message=f"AI judge ({judge_type}) evaluation completed",
-            grader_mode=GraderMode.MODEL_JUDGE,
-            confidence=0.8,
-            judge_model=config.model,
-            judge_prompt_version="1.0",
-            judge_cost_usd=config.max_cost_per_call_usd,
-            judge_latency_ms=2000 if judge_type == "small" else 5000,
-        )
-        
-        return AIJudgeResult(
-            success=True,
-            worker_result=worker_result,
-            model_used=config.model,
-            tokens_used=500,  # Placeholder
-            cost_usd=config.max_cost_per_call_usd,
-            latency_ms=2000 if judge_type == "small" else 5000,
-            confidence=0.8,
-            output_valid=True,
-            fallback_used=False,
-        )
+        if self.judge_provider is None:
+            return AIJudgeResult(
+                success=False,
+                error="No judge provider configured; inject judge_provider into GraderRouter",
+                model_used=config.model,
+                output_valid=False,
+            )
+        return await self.judge_provider(artifact, config, judge_type)
+
     
     def _is_deterministically_conclusive(
         self,
