@@ -423,7 +423,6 @@ def doctor_command(
     import os
     import sys
 
-    from rich import box as _box
 
     console.print()
     console.print("[glyph.brand]glyph[/glyph.brand] [bold white]doctor[/bold white]")
