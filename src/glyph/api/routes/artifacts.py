@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from glyph.schemas.artifacts import ArtifactItem, ArtifactSummaryResponse
-from glyph.schemas.runs import TrialListItem
 from glyph.api.rate_limit import limiter
 from glyph.api.settings import Settings, get_settings
+from glyph.schemas.artifacts import ArtifactItem, ArtifactSummaryResponse
+from glyph.schemas.runs import TrialListItem
 
 router = APIRouter()
 
@@ -52,7 +53,7 @@ async def get_artifact_summary(
         raise HTTPException(status_code=404, detail="Artifact not found")
         
     try:
-        with open(artifact_path, "r", encoding="utf-8") as f:
+        with open(artifact_path, encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
             
         if not lines:
@@ -66,7 +67,7 @@ async def get_artifact_summary(
             
         return ArtifactSummaryResponse(**data)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to load run summary: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Failed to load run summary: {e!s}")
 
 
 @router.get("/{name}/trials", response_model=list[TrialListItem])
@@ -89,7 +90,7 @@ async def get_artifact_trials(
     skipped = 0
     
     try:
-        with open(artifact_path, "r", encoding="utf-8") as f:
+        with open(artifact_path, encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -114,7 +115,7 @@ async def get_artifact_trials(
                     
         return trials
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {e!s}")
 
 
 @router.get("/{name}/trial/{case_id}", response_model=TrialListItem)
@@ -131,7 +132,7 @@ async def get_artifact_trial(
         raise HTTPException(status_code=404, detail="Artifact not found")
         
     try:
-        with open(artifact_path, "r", encoding="utf-8") as f:
+        with open(artifact_path, encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -144,4 +145,4 @@ async def get_artifact_trial(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Failed to parse artifact trials: {e!s}")

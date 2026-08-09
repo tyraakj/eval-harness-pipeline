@@ -4,29 +4,31 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 
-from glyph.schemas.compare import (
-    ComparisonRequest, 
-    ComparisonResponse, 
-    ReleaseRequest, 
-    ReleaseDecisionResponse
-)
 from glyph.api.rate_limit import limiter
 from glyph.grading.comparison import compare
+from glyph.schemas.compare import (
+    ComparisonRequest,
+    ComparisonResponse,
+    ReleaseDecisionResponse,
+    ReleaseRequest,
+)
 from glyph.specialized_workers.gates.release_gate import ReleaseGate
 
 router = APIRouter()
 
 def _load_run_summary(path: str):
     """Load RunSummary from artifact path JSONL (last line)."""
-    from glyph.core.domain_models import RunSummary
     import os
+
+    from glyph.core.domain_models import RunSummary
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail=f"Artifact not found at {path}")
         
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
             
         if not lines:
@@ -41,7 +43,7 @@ def _load_run_summary(path: str):
             
         return RunSummary(**data)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to load run summary: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Failed to load run summary: {e!s}")
 
 @router.post("/compare", response_model=ComparisonResponse)
 @limiter.limit("30/minute")
