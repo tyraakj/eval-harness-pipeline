@@ -992,7 +992,7 @@ class TestAIDecisionGates:
         """Test post-result gate validates successful AI result."""
         gate = PostResultGate("test_post_result")
         
-        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
+        from glyph.specialized_workers.base import GraderMode, Severity, WorkerResult, WorkerType
         ai_result = AIJudgeResult(
             success=True,
             worker_result=WorkerResult(
@@ -1033,7 +1033,7 @@ class TestAIDecisionGates:
         """Test post-result gate fallback on low confidence."""
         gate = PostResultGate("test_post_result")
         
-        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
+        from glyph.specialized_workers.base import GraderMode, Severity, WorkerResult, WorkerType
         ai_result = AIJudgeResult(
             success=True,
             worker_result=WorkerResult(
@@ -1243,7 +1243,7 @@ class TestAIDecisionGates:
         """Test AI judge gate chain for post-result validation."""
         gate_chain = AIJudgeGateChain()
         
-        from glyph.specialized_workers.base import WorkerResult, WorkerType, Severity, GraderMode
+        from glyph.specialized_workers.base import GraderMode, Severity, WorkerResult, WorkerType
         ai_result = AIJudgeResult(
             success=True,
             worker_result=WorkerResult(

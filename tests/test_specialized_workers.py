@@ -2,8 +2,10 @@
 
 
 import dataclasses
+
 import pytest
 
+from glyph.core.domain_models import Budget
 from glyph.specialized_workers.aggregator import (
     AggregationPolicy,
     ReleaseDecision,
@@ -46,6 +48,16 @@ from glyph.specialized_workers.orchestrator import (
     EvaluationOrchestrator,
     OrchestratorConfig,
 )
+from glyph.specialized_workers.policy_registry import PolicyRegistry
+from glyph.specialized_workers.policy_registry import (
+    TOOL_DEFAULT_SCORES, TOOL_SUCCESS_MSG,
+    OUTPUT_DEFAULT_SCORES, OUTPUT_SUCCESS_MSG,
+    GRAPH_DEFAULT_SCORES, GRAPH_SUCCESS_MSG_TEMPLATE,
+    SECURITY_DEFAULT_SCORES, SECURITY_SUCCESS_MSG, DEFAULT_SECRET_PATTERNS,
+    RETRIEVAL_DEFAULT_SCORES, RETRIEVAL_F1_EXCELLENT_MSG, RETRIEVAL_F1_ACCEPTABLE_MSG,
+    PERFORMANCE_DEFAULT_SCORES, PERFORMANCE_SUCCESS_MSG,
+)
+
 
 
 @pytest.fixture
@@ -91,7 +103,7 @@ class TestToolEvaluator:
     
     def test_can_evaluate_with_tool_calls(self, sample_evidence):
         """Test that evaluator can evaluate evidence with tool calls."""
-        policy = ToolPolicy()
+        policy = ToolPolicy(partial_scores=TOOL_DEFAULT_SCORES, success_message=TOOL_SUCCESS_MSG)
         evaluator = ToolEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
@@ -103,13 +115,13 @@ class TestToolEvaluator:
             case_id="test_case",
             tool_calls=(),
         )
-        policy = ToolPolicy()
+        policy = ToolPolicy(partial_scores=TOOL_DEFAULT_SCORES, success_message=TOOL_SUCCESS_MSG)
         evaluator = ToolEvaluator(policy=policy)
         assert evaluator.can_evaluate(evidence) is False
     
     def test_evaluates_authorized_tool(self, sample_evidence):
         """Test evaluation of authorized tool call."""
-        policy = ToolPolicy(allowed_tools={"python_interpreter"})
+        policy = ToolPolicy(partial_scores=TOOL_DEFAULT_SCORES, success_message=TOOL_SUCCESS_MSG, allowed_tools={"python_interpreter"})
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -120,14 +132,14 @@ class TestToolEvaluator:
     def test_evaluates_unauthorized_tool(self, sample_evidence):
         """Test evaluation of unauthorized tool call."""
         sample_evidence.tool_calls[0]["tool_name"] = "system_shell"
-        policy = ToolPolicy(prohibited_tools={"system_shell"})
+        policy = ToolPolicy(partial_scores=TOOL_DEFAULT_SCORES, success_message=TOOL_SUCCESS_MSG, prohibited_tools={"system_shell"})
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
         assert result.passed is False
         assert result.score == 0.0
         assert result.severity == Severity.CRITICAL
-        assert "unauthorized" in result.reason_code.lower()
+        assert "prohibited" in result.reason_code.lower()
     
     def test_evaluates_excessive_tool_calls(self, sample_evidence):
         """Test evaluation of excessive tool calls."""
@@ -138,7 +150,7 @@ class TestToolEvaluator:
                 for _ in range(25)
             )
         )
-        policy = ToolPolicy(max_tool_calls=20)
+        policy = ToolPolicy(partial_scores=TOOL_DEFAULT_SCORES, success_message=TOOL_SUCCESS_MSG, max_tool_calls=20)
         evaluator = ToolEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -151,7 +163,7 @@ class TestRetrievalEvaluator:
     
     def test_can_evaluate_with_retrieval_events(self, sample_evidence):
         """Test that evaluator can evaluate evidence with retrieval events."""
-        policy = RetrievalPolicy()
+        policy = RetrievalPolicy(partial_scores=RETRIEVAL_DEFAULT_SCORES, f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG, f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG)
         evaluator = RetrievalEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
@@ -163,7 +175,7 @@ class TestRetrievalEvaluator:
             case_id="test_case",
             retrieval_events=(),
         )
-        policy = RetrievalPolicy()
+        policy = RetrievalPolicy(partial_scores=RETRIEVAL_DEFAULT_SCORES, f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG, f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG)
         evaluator = RetrievalEvaluator(policy=policy)
         assert evaluator.can_evaluate(evidence) is False
     
@@ -171,7 +183,7 @@ class TestRetrievalEvaluator:
         """Test evaluation of good retrieval quality."""
         sample_evidence.metadata["expected_relevant_sources"] = ["doc1", "doc2"]
         sample_evidence.final_output["text"] = "Hello world [1] source doc1 doc2"
-        policy = RetrievalPolicy()
+        policy = RetrievalPolicy(partial_scores=RETRIEVAL_DEFAULT_SCORES, f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG, f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG)
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -183,7 +195,9 @@ class TestRetrievalEvaluator:
         sample_evidence.metadata["expected_relevant_sources"] = ["doc1", "doc2", "doc3"]
         sample_evidence.retrieval_events[0]["source_ids"] = ["doc4", "doc5"]
         sample_evidence.final_output["text"] = "Hello world [1] source doc4 doc5"
-        policy = RetrievalPolicy(require_citations=False, require_source_grounding=False, min_relevant_sources=0)
+        policy = RetrievalPolicy(partial_scores=RETRIEVAL_DEFAULT_SCORES, f1_excellent_message_template=RETRIEVAL_F1_EXCELLENT_MSG, f1_acceptable_message_template=RETRIEVAL_F1_ACCEPTABLE_MSG, 
+            require_citations=False, require_source_grounding=False, min_relevant_sources=0
+        )
         evaluator = RetrievalEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -196,7 +210,7 @@ class TestGraphEvaluator:
     
     def test_can_evaluate_with_graph_nodes(self, sample_evidence):
         """Test that evaluator can evaluate evidence with graph nodes."""
-        policy = GraphPolicy()
+        policy = GraphPolicy(partial_scores=GRAPH_DEFAULT_SCORES, success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE)
         evaluator = GraphEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
@@ -208,14 +222,14 @@ class TestGraphEvaluator:
             case_id="test_case",
             graph_nodes=(),
         )
-        policy = GraphPolicy()
+        policy = GraphPolicy(partial_scores=GRAPH_DEFAULT_SCORES, success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE)
         evaluator = GraphEvaluator(policy=policy)
         assert evaluator.can_evaluate(evidence) is False
     
     def test_evaluates_compliant_graph(self, sample_evidence):
         """Test evaluation of compliant graph execution."""
         sample_evidence.metadata["terminal_reason"] = "completed"
-        policy = GraphPolicy()
+        policy = GraphPolicy(partial_scores=GRAPH_DEFAULT_SCORES, success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE)
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -225,7 +239,7 @@ class TestGraphEvaluator:
     def test_evaluates_prohibited_node(self, sample_evidence):
         """Test evaluation of prohibited node visit."""
         sample_evidence.graph_nodes[0]["node_id"] = "debug_node"
-        policy = GraphPolicy(prohibited_nodes={"debug_node"})
+        policy = GraphPolicy(partial_scores=GRAPH_DEFAULT_SCORES, success_message_template=GRAPH_SUCCESS_MSG_TEMPLATE, prohibited_nodes={"debug_node"})
         evaluator = GraphEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -238,7 +252,7 @@ class TestOutputEvaluator:
     
     def test_can_evaluate_with_final_output(self, sample_evidence):
         """Test that evaluator can evaluate evidence with final output."""
-        policy = OutputPolicy()
+        policy = OutputPolicy(partial_scores=OUTPUT_DEFAULT_SCORES, success_message=OUTPUT_SUCCESS_MSG)
         evaluator = OutputEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
@@ -250,13 +264,13 @@ class TestOutputEvaluator:
             case_id="test_case",
             final_output={},
         )
-        policy = OutputPolicy()
+        policy = OutputPolicy(partial_scores=OUTPUT_DEFAULT_SCORES, success_message=OUTPUT_SUCCESS_MSG)
         evaluator = OutputEvaluator(policy=policy)
         assert evaluator.can_evaluate(evidence) is False
     
     def test_evaluates_compliant_output(self, sample_evidence):
         """Test evaluation of compliant output."""
-        policy = OutputPolicy()
+        policy = OutputPolicy(partial_scores=OUTPUT_DEFAULT_SCORES, success_message=OUTPUT_SUCCESS_MSG)
         evaluator = OutputEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -265,8 +279,10 @@ class TestOutputEvaluator:
     
     def test_evaluates_missing_required_fields(self, sample_evidence):
         """Test evaluation of missing required fields."""
-        sample_evidence = dataclasses.replace(sample_evidence, final_output={"text": "Hello"})  # Missing required "confidence"
-        policy = OutputPolicy(required_fields={"text", "confidence"})
+        sample_evidence = dataclasses.replace(
+            sample_evidence, final_output={"text": "Hello"}
+        )  # Missing required "confidence"
+        policy = OutputPolicy(partial_scores=OUTPUT_DEFAULT_SCORES, success_message=OUTPUT_SUCCESS_MSG, required_fields={"text", "confidence"})
         evaluator = OutputEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -279,13 +295,13 @@ class TestSecurityEvaluator:
     
     def test_always_can_evaluate(self, sample_evidence):
         """Test that security evaluator can always evaluate."""
-        policy = SecurityPolicy()
+        policy = SecurityPolicy(partial_scores=SECURITY_DEFAULT_SCORES, success_message=SECURITY_SUCCESS_MSG, block_secret_exposure=True, secret_patterns=DEFAULT_SECRET_PATTERNS)
         evaluator = SecurityEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
     def test_evaluates_clean_execution(self, sample_evidence):
         """Test evaluation of clean execution with no security issues."""
-        policy = SecurityPolicy()
+        policy = SecurityPolicy(partial_scores=SECURITY_DEFAULT_SCORES, success_message=SECURITY_SUCCESS_MSG, block_secret_exposure=True, secret_patterns=DEFAULT_SECRET_PATTERNS)
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -294,8 +310,11 @@ class TestSecurityEvaluator:
     
     def test_evaluates_secret_exposure(self, sample_evidence):
         """Test evaluation of secret exposure."""
-        sample_evidence = dataclasses.replace(sample_evidence, final_output={"text": "API key: sk-1234567890abcdef1234567890abcdef"})
-        policy = SecurityPolicy(block_secret_exposure=True)
+        sample_evidence = dataclasses.replace(
+            sample_evidence,
+            final_output={"text": "API key: sk-1234567890abcdef1234567890abcdef"}
+        )
+        policy = SecurityPolicy(partial_scores=SECURITY_DEFAULT_SCORES, success_message=SECURITY_SUCCESS_MSG, block_secret_exposure=True, secret_patterns=DEFAULT_SECRET_PATTERNS)
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -306,12 +325,34 @@ class TestSecurityEvaluator:
     def test_evaluates_unauthorized_tool(self, sample_evidence):
         """Test evaluation of unauthorized tool access."""
         sample_evidence.tool_calls[0]["tool_name"] = "system_shell"
-        policy = SecurityPolicy(unauthorized_tool_block=True, prohibited_tools={"system_shell"})
+        policy = SecurityPolicy(partial_scores=SECURITY_DEFAULT_SCORES, success_message=SECURITY_SUCCESS_MSG, unauthorized_tool_block=True, prohibited_tools={"system_shell"})
         evaluator = SecurityEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
         assert result.passed is False
         assert result.severity == Severity.CRITICAL
+    
+    def test_evaluates_blocked_network(self, sample_evidence):
+        """Test evaluation of blocked network access to private CIDR."""
+        sample_evidence = dataclasses.replace(
+            sample_evidence,
+            tool_calls=(
+                {
+                    "tool_name": "fetch",
+                    "arguments": {"url": "http://169.254.169.254/latest/meta-data"},
+                    "confirmed": True,
+                },
+            )
+        )
+        # By default blocked_domains has 169.254.169.254, but the new _is_private_ip 
+        # also blocks private IP ranges
+        policy = SecurityPolicy(partial_scores=SECURITY_DEFAULT_SCORES, success_message=SECURITY_SUCCESS_MSG, block_secret_exposure=True, secret_patterns=DEFAULT_SECRET_PATTERNS)
+        evaluator = SecurityEvaluator(policy=policy)
+        result = evaluator.evaluate(sample_evidence)
+        
+        assert result.passed is False
+        assert result.severity == Severity.CRITICAL
+        assert "unauthorized_network_access" == result.reason_code.lower()
 
 
 class TestPerformanceEvaluator:
@@ -319,13 +360,13 @@ class TestPerformanceEvaluator:
     
     def test_always_can_evaluate(self, sample_evidence):
         """Test that performance evaluator can always evaluate."""
-        policy = PerformancePolicy()
+        policy = PerformancePolicy(partial_scores=PERFORMANCE_DEFAULT_SCORES, success_message=PERFORMANCE_SUCCESS_MSG)
         evaluator = PerformanceEvaluator(policy=policy)
         assert evaluator.can_evaluate(sample_evidence) is True
     
     def test_evaluates_good_performance(self, sample_evidence):
         """Test evaluation of good performance metrics."""
-        policy = PerformancePolicy()
+        policy = PerformancePolicy(partial_scores=PERFORMANCE_DEFAULT_SCORES, success_message=PERFORMANCE_SUCCESS_MSG)
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -335,7 +376,7 @@ class TestPerformanceEvaluator:
     def test_evaluates_excessive_latency(self, sample_evidence):
         """Test evaluation of excessive latency."""
         sample_evidence = dataclasses.replace(sample_evidence, latency_ms=35000.0)  # 35 seconds
-        policy = PerformancePolicy(max_total_latency_ms=30000)
+        policy = PerformancePolicy(partial_scores=PERFORMANCE_DEFAULT_SCORES, success_message=PERFORMANCE_SUCCESS_MSG, max_total_latency_ms=30000)
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -345,7 +386,7 @@ class TestPerformanceEvaluator:
     def test_evaluates_excessive_cost(self, sample_evidence):
         """Test evaluation of excessive cost."""
         sample_evidence = dataclasses.replace(sample_evidence, cost_usd=2.0)
-        policy = PerformancePolicy(max_cost_usd=1.0)
+        policy = PerformancePolicy(partial_scores=PERFORMANCE_DEFAULT_SCORES, success_message=PERFORMANCE_SUCCESS_MSG, max_cost_usd=1.0)
         evaluator = PerformanceEvaluator(policy=policy)
         result = evaluator.evaluate(sample_evidence)
         
@@ -604,6 +645,26 @@ class TestWorkerResultStorage:
         stats = storage.get_storage_stats()
         assert stats["total_attempts"] == 3
         assert stats["status_counts"]["pending"] == 3
+
+
+class TestPolicyRegistry:
+    """Tests for PolicyRegistry."""
+    
+    def test_registry_populates_policies_from_budget(self):
+        budget = Budget(
+            timeout_seconds=30,
+            max_tool_calls=15,
+            max_judge_cost_usd=2.5,
+        )
+        registry = PolicyRegistry(budget=budget)
+        
+        tool_policy = registry.to_tool_policy()
+        perf_policy = registry.to_performance_policy()
+        
+        assert tool_policy.max_tool_calls == 15
+        assert perf_policy.max_tool_calls == 15
+        assert perf_policy.max_total_latency_ms == 30000
+        assert perf_policy.max_cost_usd == 2.5
 
 
 if __name__ == "__main__":
